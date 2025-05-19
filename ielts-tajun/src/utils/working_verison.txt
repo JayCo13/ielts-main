@@ -1,0 +1,285 @@
+import React, { useState, useEffect } from 'react';
+import DOMPurify from 'dompurify';
+import { 
+  saveAnswer, 
+  saveHighlight, 
+  extractMultipleChoiceQuestions, 
+  extractCheckboxQuestions,
+  extractTableRadioQuestions,
+  extractDragDropQuestions,
+  getThemeStyles 
+} from './utils/examUtils';
+
+const ListeningTest = ({ 
+  question, 
+  onAnswerChange, 
+  index, 
+  questionNumber, 
+  examData, 
+  currentPart, 
+  questionType,
+  textSize,
+  colorTheme,
+  hardQuestions,
+}) => {
+  const [mainText, setMainText] = useState('');
+  const [inputs, setInputs] = useState({});
+  const [questionMap, setQuestionMap] = useState({});
+  const [multipleChoiceQuestions, setMultipleChoiceQuestions] = useState([]); 
+  const [checkboxQuestions, setCheckboxQuestions] = useState([]);
+  const [tableRadioSections, setTableRadioSections] = useState([]);
+  const [dragDropSections, setDragDropSections] = useState([]);
+  const [draggedItem, setDraggedItem] = useState(null);
+
+  // ... existing code ...
+
+  // Initialize state with saved answers if available
+  useEffect(() => {
+    if (question.question_type === 'main_text') {
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = DOMPurify.sanitize(question.question_text);
+      setMainText(tempDiv.innerHTML);
+
+      // Get all questions from the current section
+      const currentSection = examData?.sections[currentPart - 1];
+      const allQuestions = currentSection?.questions.filter(
+        q => q.question_type === 'fill_in_blank' || q.question_type === 'multiple_choice' || 
+             q.question_type === 'table_radio' || q.question_type === 'drag_drop'
+      );
+
+      // ... existing code for creating question mapping ...
+
+      // Load saved answers from localStorage
+      const savedAnswers = JSON.parse(localStorage.getItem('ielts-answers') || '{}');
+      const examAnswers = savedAnswers[examData?.exam_id] || {};
+      
+      // Convert question IDs back to question numbers for our inputs state
+      const savedInputs = {};
+      Object.entries(qMap).forEach(([questionNum, questionId]) => {
+        if (examAnswers[questionId]) {
+          savedInputs[questionNum] = examAnswers[questionId];
+        }
+      });
+      
+      // Also load checkbox answers
+      Object.keys(examAnswers).forEach(questionId => {
+        const answer = examAnswers[questionId];
+        if (answer && answer.length === 1 && answer >= 'A' && answer <= 'Z') {
+          const questionNum = Object.entries(qMap).find(([num, id]) => id.toString() === questionId.toString())?.[0];
+          if (questionNum) {
+            const section = checkboxQuestions.find(s => 
+              parseInt(questionNum) >= s.startNum && parseInt(questionNum) <= s.endNum
+            );
+            if (section) {
+              savedInputs[`checkbox_${section.startNum}_${answer}`] = true;
+            }
+          }
+        }
+      });
+      
+      // Update inputs state with saved answers
+      if (Object.keys(savedInputs).length > 0) {
+        setInputs(savedInputs);
+      }
+
+      // Extract all question types
+      setMultipleChoiceQuestions(extractMultipleChoiceQuestions(tempDiv.innerHTML));
+      setCheckboxQuestions(extractCheckboxQuestions(tempDiv.innerHTML));
+      setTableRadioSections(extractTableRadioQuestions(tempDiv.innerHTML));
+      setDragDropSections(extractDragDropQuestions(tempDiv.innerHTML));
+    }
+  }, [question, examData, currentPart, textSize, colorTheme]);
+
+  // Define window handlers for all question types
+  useEffect(() => {
+    // ... existing code for window.handleInput and window.handleRadioInput ...
+
+    // Add handler for table radio inputs
+    window.handleTableRadioInput = (number, value) => {
+      handleTableRadioInput(number, value);
+    };
+
+    // Add handler for drag and drop
+    window.handleDragDrop = (number, value) => {
+      handleDragDropInput(number, value);
+    };
+
+    // ... existing code for checking exam session ...
+  }, [questionMap, examData?.exam_id, onAnswerChange]);
+
+  // Define handleTableRadioInput as a component function
+  const handleTableRadioInput = (number, value) => {
+    setInputs(prev => ({ ...prev, [number]: value }));
+    const questionId = questionMap[number];
+    if (questionId) {
+      onAnswerChange(questionId, value);
+      saveAnswer(examData?.exam_id, questionId, value);
+    }
+  };
+
+  // Define handleDragDropInput as a component function
+  const handleDragDropInput = (number, value) => {
+    setInputs(prev => ({ ...prev, [number]: value }));
+    const questionId = questionMap[number];
+    if (questionId) {
+      onAnswerChange(questionId, value);
+      saveAnswer(examData?.exam_id, questionId, value);
+    }
+  };
+
+  // Handle drag start
+  const handleDragStart = (e, item) => {
+    setDraggedItem(item);
+    e.dataTransfer.setData('text/plain', item);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  // Handle drag over
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  // Handle drop
+  const handleDrop = (e, questionNumber) => {
+    e.preventDefault();
+    if (draggedItem) {
+      handleDragDropInput(questionNumber, draggedItem);
+      setDraggedItem(null);
+    }
+  };
+
+  // ... existing code ...
+
+  // Add this function to render table radio sections
+  const renderTableRadioSections = () => {
+    return tableRadioSections.map((section, sectionIndex) => {
+      // Create a copy of the table element to manipulate
+      const tableDiv = document.createElement('div');
+      tableDiv.innerHTML = section.element.outerHTML;
+      const table = tableDiv.firstChild;
+      
+      // Find all radio inputs in the table
+      const radioInputs = table.querySelectorAll('input[type="radio"]');
+      
+      // Replace each radio input with a custom one that calls our handler
+      radioInputs.forEach(input => {
+        const questionNum = input.name.replace('table_question_', '');
+        const value = input.value;
+        
+        // Check if this radio should be checked based on saved answers
+        const isChecked = inputs[questionNum] === value;
+        
+        // Create a new input with our custom attributes
+        const newInput = document.createElement('input');
+        newInput.type = 'radio';
+        newInput.name = input.name;
+        newInput.value = value;
+        newInput.className = 'ielts-radio';
+        newInput.checked = isChecked;
+        newInput.setAttribute('onclick', `window.handleTableRadioInput('${questionNum}', '${value}')`);
+        
+        // Replace the original input with our new one
+        input.parentNode.replaceChild(newInput, input);
+      });
+      
+      return (
+        <div key={`table-radio-${sectionIndex}`} 
+             className="mb-6 p-4 bg-white rounded-lg shadow-sm border border-gray-200">
+          <div dangerouslySetInnerHTML={{ __html: tableDiv.innerHTML }} />
+        </div>
+      );
+    });
+  };
+
+  // Add this function to render drag and drop sections
+  const renderDragDropSections = () => {
+    return dragDropSections.map((section, sectionIndex) => {
+      return (
+        <div key={`drag-drop-${sectionIndex}`} 
+             className="mb-6 p-4 bg-white rounded-lg shadow-sm border border-gray-200">
+          <h3 className="font-medium mb-2">
+            Questions {section.startNum}-{section.endNum}
+          </h3>
+          <p className="mb-4 text-gray-700">{section.instructionText}</p>
+          
+          {/* Options to drag */}
+          <div className="flex flex-wrap gap-2 mb-4 p-3 bg-gray-50 rounded-lg">
+            {section.options.map((option, optionIndex) => (
+              <div
+                key={`option-${sectionIndex}-${optionIndex}`}
+                draggable
+                onDragStart={(e) => handleDragStart(e, option.label)}
+                className="px-3 py-2 bg-white border border-gray-300 rounded-md cursor-move hover:bg-gray-100 transition-colors"
+              >
+                {option.label}: {option.text}
+              </div>
+            ))}
+          </div>
+          
+          {/* Drop targets */}
+          <div className="space-y-3">
+            {Array.from({ length: section.endNum - section.startNum + 1 }, (_, i) => {
+              const questionNum = section.startNum + i;
+              const currentAnswer = inputs[questionNum] || '';
+              
+              return (
+                <div key={`drop-${sectionIndex}-${questionNum}`} className="flex items-center gap-3">
+                  <span className="font-medium">{questionNum}.</span>
+                  <div
+                    onDragOver={handleDragOver}
+                    onDrop={(e) => handleDrop(e, questionNum.toString())}
+                    className="flex-1 min-h-[40px] border border-dashed border-gray-300 rounded-md p-2 bg-gray-50"
+                  >
+                    {currentAnswer && (
+                      <div className="px-2 py-1 bg-lime-100 border border-lime-200 rounded text-lime-800 inline-block">
+                        {currentAnswer}
+                      </div>
+                    )}
+                  </div>
+                  {currentAnswer && (
+                    <button
+                      onClick={() => handleDragDropInput(questionNum.toString(), '')}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    });
+  };
+
+  // Update the render method to include our new sections
+  return (
+    <div className={`${themeClass} p-4 rounded-lg ${textSizeClass}`}>
+      {question.question_type === 'main_text' ? (
+        <div>
+          <div dangerouslySetInnerHTML={{ __html: mainText }} />
+          
+          {/* Render table radio sections */}
+          {tableRadioSections.length > 0 && (
+            <div className="mt-6">
+              {renderTableRadioSections()}
+            </div>
+          )}
+          
+          {/* Render drag and drop sections */}
+          {dragDropSections.length > 0 && (
+            <div className="mt-6">
+              {renderDragDropSections()}
+            </div>
+          )}
+        </div>
+      ) : (
+        // ... existing code for other question types ...
+      )}
+    </div>
+  );
+};
+
+export default ListeningTest;

@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  backend:
+    build: 
+      context: ./ielts-practice-backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=mysql://root:root@db:3306/ielts_practice
+    depends_on:
+      - db
+    volumes:
+      - ./ielts-practice-backend:/app
+      - ./ielts-practice-backend/static:/app/static
+    networks:
+      - ielts_network
+
+  admin-ui:
+    build:
+      context: ./ielts-practice-ui
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - ielts_network
+
+  user-ui:
+    build:
+      context: ./ielts-tajun
+      dockerfile: Dockerfile
+    ports:
+      - "3001:80"
+    depends_on:
+      - backend
+    networks:
+      - ielts_network
+
+  db:
+    image: mysql:8.0
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_DATABASE=ielts_practice
+      - MYSQL_USER=ielts
+      - MYSQL_PASSWORD=ielts123
+    ports:
+      - "3307:3306"  # Changed port mapping to avoid conflict
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - ielts_network
+
+networks:
+  ielts_network:
+    driver: bridge
+
+volumes:
+  mysql_data:

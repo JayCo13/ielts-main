@@ -1,0 +1,96 @@
+<p dir="ltr">Questions 1-6</p>
+ <p dir="ltr">Complete the table below.</p>
+ <p dir="ltr">Write ONE WORD AND/OR A NUMBER for each answer.</p>
+ <p dir="ltr">Beechen Festival</p>
+ <div dir="ltr" align="left">
+ <table style="width: 102.031%;"><colgroup><col style="width: 12.2066%;" width="79"><col style="width: 18.1534%;" width="90"><col style="width: 18.7793%;" width="138"><col style="width: 23.1612%;" width="150"><col style="width: 27.6995%;" width="181"></colgroup>
+ <tbody>
+ <tr>
+ <td>
+ <p dir="ltr">Date</p>
+ </td>
+ <td>
+ <p dir="ltr">Time</p>
+ </td>
+ <td>
+ <p dir="ltr">Activity</p>
+ </td>
+ <td>
+ <p dir="ltr">Place</p>
+ </td>
+ <td>
+ <p dir="ltr">Comments</p>
+ </td>
+ </tr>
+ <tr>
+ <td>
+ <p dir="ltr">June 19th</p>
+ </td>
+ <td>
+ <p dir="ltr">7 p.m.</p>
+ </td>
+ <td>
+ <p dir="ltr">Example</p>
+ <p dir="ltr">Concert</p>
+ </td>
+ <td>
+ <p dir="ltr">the <strong>1</strong> <input class="ielts-textfield" style="width: 60px; height: 25px; border: 1px solid #999; border-radius: 3px; padding: 4px 8px; margin: 0 4px; font-weight: bold; text-align: center;" type="text" value="Number">&nbsp;</p>
+ </td>
+ <td>&nbsp;</td>
+ </tr>
+ <tr>
+ <td>
+ <p dir="ltr">June 20th</p>
+ </td>
+ <td>
+ <p dir="ltr"><strong>2</strong> <input class="ielts-textfield" style="width: 60px; height: 25px; border: 1px solid #999; border-radius: 3px; padding: 4px 8px; margin: 0 4px; font-weight: bold; text-align: center;" type="text" value="Number">&nbsp; p.m.</p>
+ </td>
+ <td>
+ <p dir="ltr">tour</p>
+ </td>
+ <td>
+ <p dir="ltr">meet at&nbsp;</p>
+ <p dir="ltr">the <strong>3</strong> <input class="ielts-textfield" style="width: 60px; height: 25px; border: 1px solid #999; border-radius: 3px; padding: 4px 8px; margin: 0 4px; font-weight: bold; text-align: center;" type="text" value="Number">&nbsp;</p>
+ </td>
+ <td>
+ <p dir="ltr">includes a visit to an old flour mill</p>
+ </td>
+ </tr>
+ <tr>
+ <td>
+ <p dir="ltr">June 21st</p>
+ <br><br><br></td>
+ <td>
+ <p dir="ltr">all day</p>
+ <br><br><br></td>
+ <td>
+ <p dir="ltr">children's</p>
+ <p dir="ltr"><strong>4</strong> <input class="ielts-textfield" style="width: 60px; height: 25px; border: 1px solid #999; border-radius: 3px; padding: 4px 8px; margin: 0 4px; font-weight: bold; text-align: center;" type="text" value="Number">&nbsp; competition</p>
+ </td>
+ <td>
+ <p dir="ltr">Beechen&nbsp;</p>
+ <p dir="ltr">Community Centre</p>
+ </td>
+ <td>
+ <p dir="ltr">bring a <strong>5</strong> <input class="ielts-textfield" style="width: 60px; height: 25px; border: 1px solid #999; border-radius: 3px; padding: 4px 8px; margin: 0 4px; font-weight: bold; text-align: center;" type="text" value="Number">&nbsp;</p>
+ </td>
+ </tr>
+ <tr>
+ <td>
+ <p dir="ltr">June 21st</p>
+ </td>
+ <td>
+ <p dir="ltr">evening</p>
+ </td>
+ <td>
+ <p dir="ltr">fireworks</p>
+ </td>
+ <td>
+ <p dir="ltr">by the <strong>6</strong> <input class="ielts-textfield" style="width: 60px; height: 25px; border: 1px solid #999; border-radius: 3px; padding: 4px 8px; margin: 0 4px; font-weight: bold; text-align: center;" type="text" value="Number">&nbsp;</p>
+ </td>
+ <td>&nbsp;</td>
+ </tr>
+ </tbody>
+ </table>
+ </div>
+  
