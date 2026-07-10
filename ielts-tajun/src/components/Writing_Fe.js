@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Play, Search, ChevronLeft, ChevronRight, Sparkles, RotateCw, Bot, Lock } from 'lucide-react';
+import { Play, Search, ChevronLeft, ChevronRight, Sparkles, RotateCw, Bot, Lock, CheckCircle } from 'lucide-react';
 import ConfirmDialog from './ConfirmDialog';
 import EditEssayDialog from './EditEssayDialog';
 import Navbar from './Navbar';
 import AIFeedbackDialog from './AiFeedbackDialog';
 import { create } from 'framer-motion/m';
 import { checkExamAccess } from '../utils/examAccess';
+import secureStorage from '../utils/secureStorage';
+import { API_BASE } from '../config/api';
 
 const Writing_Fe = () => {
   const navigate = useNavigate();
@@ -17,7 +19,9 @@ const Writing_Fe = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [username, setUsername] = useState('');
-  const [isVIP, setIsVIP] = useState(false);
+  // Any active VIP package (writing/reading/listening/all_skills) — unlocks the 6/day AI grading
+  // quota. The footer text promises this for Reading/Listening VIPs too, so we honor any VIP here.
+  const [hasAnyVipForAi, setHasAnyVipForAi] = useState(false);
   const [accountStatus, setAccountStatus] = useState(null);
   const dropdownRef = useRef(null);
   const testsPerPage = 6;
@@ -28,6 +32,9 @@ const Writing_Fe = () => {
   const [aiResult, setAiResult] = useState(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedTest, setSelectedTest] = useState(null);
+  const [evaluatedTasks, setEvaluatedTasks] = useState({});
+  const [aiRemaining, setAiRemaining] = useState(0);
+
 
   useEffect(() => {
     const handleScroll = () => {
@@ -56,7 +63,8 @@ const Writing_Fe = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      const token = localStorage.getItem('token');
+
+      const token = secureStorage.getItem('token') || localStorage.getItem('token');
       if (!token) {
         navigate('/login');
         return;
@@ -64,38 +72,40 @@ const Writing_Fe = () => {
 
       try {
         const [testsResponse, subscriptionResponse] = await Promise.all([
-          fetch('http://localhost:8000/student/writing/tasks', {
+          fetch(`${API_BASE}/student/writing/tasks`, {
             headers: { 'Authorization': `Bearer ${token}` }
           }),
-          fetch('http://localhost:8000/customer/vip/subscription/status', {
+          fetch(`${API_BASE}/customer/vip/subscription/status`, {
             headers: { 'Authorization': `Bearer ${token}` }
           })
         ]);
+
+        if (testsResponse.status === 401 || subscriptionResponse.status === 401) {
+          navigate('/login');
+          return;
+        }
 
         if (testsResponse.ok && subscriptionResponse.ok) {
           const [testsData, subscriptionData] = await Promise.all([
             testsResponse.json(),
             subscriptionResponse.json()
           ]);
-          
+
           setAccountStatus(subscriptionData);
-          
-          // Writing-specific VIP access logic
-          const hasWritingAccess = subscriptionData.is_subscribed && (
-            subscriptionData.package_type === 'all_skills' || 
-            (subscriptionData.package_type === 'single_skill' && 
-             subscriptionData.skill_type === 'writing')
-          );
-          
-          setIsVIP(hasWritingAccess);
-          setTests(testsData.map(exam => ({
+
+          setHasAnyVipForAi(!!subscriptionData.is_subscribed && (
+            subscriptionData.package_type === 'all_skills' ||
+            subscriptionData.package_type === 'single_skill'
+          ));
+          const mapped = testsData.map(exam => ({
             id: exam.exam_id,
             title: exam.title,
             created_at: exam.created_at,
             test_id: exam.test_id,
             parts: exam.parts,
             is_completed: exam.is_completed
-          })));
+          }));
+          setTests(mapped);
         }
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -107,8 +117,76 @@ const Writing_Fe = () => {
     fetchData();
   }, [navigate]);
 
+  // Deep-link from the public SEO landing pages: /writing_list?open=<exam_id>
+  // opens that full test once the access-filtered list has loaded. No match
+  // (no access / VIP-only) => normal list shows, gating untouched.
+  const autoOpenHandledRef = useRef(false);
+  useEffect(() => {
+    if (loading || autoOpenHandledRef.current || !tests.length) return;
+    const openId = parseInt(new URLSearchParams(window.location.search).get('open'), 10);
+    if (!openId) return;
+    const target = tests.find(t => t.id === openId);
+    if (target && target.parts && target.parts.length) {
+      autoOpenHandledRef.current = true;
+      navigate('/writing_test_room', {
+        state: {
+          taskId: target.parts[0].task_id,
+          testId: target.test_id,
+          testTitle: target.title
+        }
+      });
+    }
+  }, [tests, loading, navigate]);
+
+  useEffect(() => {
+    const role = localStorage.getItem('role');
+    const usernameKey = localStorage.getItem('username') || 'unknown';
+    const now = new Date();
+    const nowUtcMs = now.getTime() + (now.getTimezoneOffset() * 60000);
+    const vnMs = nowUtcMs + (7 * 60 * 60 * 1000);
+    const vn = new Date(vnMs);
+    const dateKey = `${vn.getUTCFullYear()}-${String(vn.getUTCMonth() + 1).padStart(2, '0')}-${String(vn.getUTCDate()).padStart(2, '0')}`;
+    const storeKey = `aiEvalCounters:${usernameKey}`;
+    const counters = JSON.parse(localStorage.getItem(storeKey) || '{}');
+    const isVipOrStudent = hasAnyVipForAi || role === 'student';
+    const limit = isVipOrStudent ? 6 : 1;
+    const used = isVipOrStudent ? (counters[dateKey]?.total || 0) : (counters[dateKey]?.full || 0);
+    setAiRemaining(Math.max(0, limit - used));
+  }, [hasAnyVipForAi, aiDialogOpen, aiLoading]);
+
   const handleAIFeedback = async (task) => {
     if (!task.is_completed) {
+      return;
+    }
+
+    const role = localStorage.getItem('role');
+    const usernameKey = localStorage.getItem('username') || 'unknown';
+    const now = new Date();
+    const nowUtcMs = now.getTime() + (now.getTimezoneOffset() * 60000);
+    const vnMs = nowUtcMs + (7 * 60 * 60 * 1000);
+    const vn = new Date(vnMs);
+    const dateKey = `${vn.getUTCFullYear()}-${String(vn.getUTCMonth() + 1).padStart(2, '0')}-${String(vn.getUTCDate()).padStart(2, '0')}`;
+    const storeKey = `aiEvalCounters:${usernameKey}`;
+    const counters = JSON.parse(localStorage.getItem(storeKey) || '{}');
+    if (!counters[dateKey]) counters[dateKey] = { full: 0, forecast: 0, total: 0 };
+    const isVipOrStudent = hasAnyVipForAi || role === 'student';
+    if (isVipOrStudent) {
+      if (counters[dateKey].total >= 6) {
+        setAiResult({ error: 'Bạn đã vượt quá giới hạn đánh giá AI trong ngày (6).' });
+        setAiDialogOpen(true);
+        return;
+      }
+    } else {
+      if (counters[dateKey].full >= 1) {
+        setAiResult({ error: 'Tài khoản thường chỉ được đánh giá 1 bài full mỗi ngày.' });
+        setAiDialogOpen(true);
+        return;
+      }
+    }
+
+    if (aiRemaining <= 0) {
+      setAiResult({ error: 'Bạn đã hết số lượt đánh giá AI trong ngày.' });
+      setAiDialogOpen(true);
       return;
     }
 
@@ -116,10 +194,10 @@ const Writing_Fe = () => {
     setAiDialogOpen(true);
 
     try {
-      const token = localStorage.getItem('token');
+      const token = secureStorage.getItem('token') || localStorage.getItem('token');
 
       // Fetch essay data
-      const essayResponse = await fetch(`http://localhost:8000/student/writing/part/${task.task_id}/essay`, {
+      const essayResponse = await fetch(`${API_BASE}/student/writing/part/${task.task_id}/essay`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -142,7 +220,7 @@ const Writing_Fe = () => {
 
       while (retryCount <= maxRetries) {
         try {
-          const response = await fetch(`http://localhost:8000/ai/evaluate-and-save/${task.task_id}`, {
+          const response = await fetch(`${API_BASE}/ai/evaluate-and-save/${task.task_id}`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -150,7 +228,7 @@ const Writing_Fe = () => {
             },
             body: JSON.stringify({
               essay_text: essayData.essay.answer_text,
-              instructions: task.instructions
+              instructions: essayData.instructions || ''
             })
           });
 
@@ -175,10 +253,15 @@ const Writing_Fe = () => {
           setAiResult({
             task_id: data.task_id,
             evaluation_timestamp: data.evaluation_timestamp,
+            band_score: data.evaluation_result.band_score,  // Changed from 'score' to 'band_score'
             word_count: data.word_count,
             answer_text: essayData.essay.answer_text,
             evaluation_result: data.evaluation_result
           });
+          setEvaluatedTasks(prev => ({ ...prev, [task.task_id]: true }));
+          counters[dateKey].total = (counters[dateKey].total || 0) + 1;
+          counters[dateKey].full = (counters[dateKey].full || 0) + 1;
+          localStorage.setItem(storeKey, JSON.stringify(counters));
           return;
 
         } catch (error) {
@@ -216,9 +299,9 @@ const Writing_Fe = () => {
   };
 
   const handleConfirmReset = async () => {
-    const token = localStorage.getItem('token');
+    const token = secureStorage.getItem('token') || localStorage.getItem('token');
     try {
-      const response = await fetch(`http://localhost:8000/student/writing/test/${selectedTest.test_id}/reset`, {
+      const response = await fetch(`${API_BASE}/student/writing/test/${selectedTest.test_id}/reset`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -226,7 +309,7 @@ const Writing_Fe = () => {
       });
 
       if (response.ok) {
-        const testsResponse = await fetch('http://localhost:8000/student/writing/tasks', {
+        const testsResponse = await fetch(`${API_BASE}/student/writing/tasks`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -261,9 +344,9 @@ const Writing_Fe = () => {
   const handleEditDialogClose = (wasUpdated) => {
     if (wasUpdated) {
       const fetchTests = async () => {
-        const token = localStorage.getItem('token');
+        const token = secureStorage.getItem('token') || localStorage.getItem('token');
         try {
-          const response = await fetch('http://localhost:8000/student/writing/tasks', {
+          const response = await fetch(`${API_BASE}/student/writing/tasks`, {
             headers: {
               'Authorization': `Bearer ${token}`
             }
@@ -282,20 +365,31 @@ const Writing_Fe = () => {
     setSelectedPart(null);
   };
 
-  // Add sortOrder state
-  const [sortOrder, setSortOrder] = useState('latest');
+  const [sortOrder, setSortOrder] = useState('alphabet', 'latest', 'oldest');
 
-  // Modify the filteredTests to include sorting
   const filteredTests = tests
-  .filter(test => test.title.toLowerCase().includes(searchQuery.toLowerCase()))
-  .sort((a, b) => {
-    if (sortOrder === 'latest') {
-      return new Date(b.created_at) - new Date(a.created_at);
-    } else {
-      return new Date(a.created_at) - new Date(b.created_at);
-    }
-  });
+    .filter(test => test.title.toLowerCase().includes(searchQuery.toLowerCase()))
+    .sort((a, b) => {
+      switch (sortOrder) {
+        case 'alphabet':
+          // Split titles into text and number parts
+          const [aText, aNum] = a.title.match(/([^\d]+)(\d+)/).slice(1);
+          const [bText, bNum] = b.title.match(/([^\d]+)(\d+)/).slice(1);
 
+          // Compare text parts first
+          const textCompare = aText.localeCompare(bText);
+          if (textCompare !== 0) return textCompare;
+
+          // If text parts are same, compare numbers
+          return parseInt(aNum) - parseInt(bNum);
+        case 'latest':
+          return new Date(b.created_at) - new Date(a.created_at);
+        case 'oldest':
+          return new Date(a.created_at) - new Date(b.created_at);
+        default:
+          return a.title.localeCompare(b.title);
+      }
+    });
   // Add the select element in the search bar div
   <div className="flex flex-col md:flex-row gap-4 mb-8">
     <div className="flex-1 relative">
@@ -313,8 +407,9 @@ const Writing_Fe = () => {
       value={sortOrder}
       onChange={(e) => setSortOrder(e.target.value)}
     >
-      <option value="latest">Latest</option>
-      <option value="oldest">Oldest</option>
+      <option value="alphabet">Theo Alphabet</option>
+      <option value="latest">Mới nhất</option>
+      <option value="oldest">Cũ nhất</option>
     </select>
   </div>
 
@@ -325,22 +420,39 @@ const Writing_Fe = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="text-xl text-gray-600">Loading writing tests...</div>
+      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex items-center justify-center">
+        <div className="flex flex-col items-center justify-center p-8 rounded-2xl bg-white shadow-lg">
+          <div className="relative w-20 h-20 mb-6">
+            {/* Spinning circles animation */}
+            <div className="absolute inset-0 border-4 border-t-green-500 border-r-green-400 border-b-green-300 border-l-green-200 rounded-full animate-spin"></div>
+            <div className="absolute inset-2 border-4 border-t-green-400 border-r-green-300 border-b-green-200 border-l-transparent rounded-full animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }}></div>
+            <div className="absolute inset-4 border-4 border-t-green-300 border-r-green-200 border-b-transparent border-l-green-400 rounded-full animate-spin" style={{ animationDuration: '2s' }}></div>
+          </div>
+
+          <div className="text-xl font-medium text-gray-700 mb-2">Loading writing tests...</div>
+
+          <div className="flex space-x-1.5 mt-2">
+            <div className="w-3 h-3 bg-green-500 rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
+            <div className="w-3 h-3 bg-green-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+            <div className="w-3 h-3 bg-green-500 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+          </div>
+
+          <div className="mt-4 text-sm text-gray-500 max-w-xs text-center">
+            Đang tải các bài kiểm tra IELTS Writing. Vui lòng đợi trong giây lát...
+          </div>
+        </div>
       </div>
     );
   }
 
   const renderTestCard = (test, index) => (
-    <div 
-      key={test.test_id} 
-      className={`bg-white rounded-lg shadow hover:shadow-md transition-all duration-300 border border-gray-100 p-2 relative ${
-        !isVIP && (index + indexOfFirstTest) >= 3 ? 'opacity-60' : ''
-      }`}
+    <div
+      key={test.test_id}
+      className="bg-white rounded-lg shadow hover:shadow-md transition-all duration-300 border border-gray-100 p-2 relative"
     >
       <div className="p-4">
         <h3 className="text-xl font-semibold text-gray-800 mb-2 flex items-center">
-          <span className="text-lime-600 text-md italic mr-2">Test:</span>
+          <span className="text-[#0096b1] text-md italic mr-2">Test:</span>
           <span className="text-gray-700 truncate">{test.title}</span>
         </h3>
 
@@ -363,11 +475,15 @@ const Writing_Fe = () => {
                         ...task,
                         is_completed: test.is_completed
                       })}
-                      className="px-2 py-0.5 text-md bg-gradient-to-r from-green-400 to-blue-400 hover:from-green-500 hover:to-blue-500 text-white rounded flex items-center gap-1"
-                      disabled={aiLoading}
+                      className={`px-2 py-0.5 text-md bg-gradient-to-r from-green-400 to-blue-400 hover:from-green-500 hover:to-blue-500 text-white rounded flex items-center gap-1 ${aiRemaining <= 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      disabled={aiLoading || aiRemaining <= 0}
                     >
-                      <Sparkles className="w-3 h-3" />
-                      {aiLoading ? '...' : 'AI'}
+                      {evaluatedTasks[task.task_id] ? (
+                        <CheckCircle className="w-3 h-3" />
+                      ) : (
+                        <Sparkles className="w-3 h-3" />
+                      )}
+                      {aiLoading ? '...' : 'Evaluate with AI'}
                     </button>
                   </>
                 )}
@@ -376,40 +492,17 @@ const Writing_Fe = () => {
           ))}
         </div>
 
-        {(!isVIP && (index + indexOfFirstTest) >= 3) ? (
-          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-b from-gray-50/80 to-gray-100/95 backdrop-blur-sm rounded-lg transition-all duration-300 hover:bg-gradient-to-b hover:from-gray-50/90 hover:to-gray-100/98 group">
-            <div className="text-center transform transition-transform duration-300 group-hover:scale-105">
-              <div className="relative">
-                <Lock className="w-10 h-10 text-lime-500 mx-auto mb-3 animate-bounce" />
-                <div className="absolute -inset-1 bg-lime-200 opacity-30 rounded-full blur animate-pulse"></div>
-              </div>
-              <span className="text-gray-900 font-semibold block mb-2 text-lg">
-                Nâng cấp VIP để mở khóa
-              </span>
-              <Link
-                to="/vip-packages"
-                className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-lime-500 to-lime-600 text-white rounded-lg hover:from-lime-600 hover:to-lime-700 transition-all duration-300 shadow-lg hover:shadow-lime-200 font-medium text-sm"
-              >
-                Xem gói VIP
-                <ChevronRight className="w-4 h-4 ml-1" />
-              </Link>
-            </div>
-          </div>
-        ) : (
-          <button
-            onClick={() => handleStartTest(test)}
-            className={`w-full flex items-center justify-center gap-2 ${
-              test.is_completed ? 'bg-red-500 hover:bg-red-600' : 'bg-lime-500 hover:bg-lime-600'
-            } text-white px-4 py-2 rounded-md transition-colors font-medium text-sm`}
-          >
-            {test.is_completed ? (
-              <RotateCw className="w-4 h-4" />
-            ) : (
-              <Play className="w-4 h-4" />
-            )}
-            <span>{test.is_completed ? 'Retake Test' : 'Start Test'}</span>
-          </button>
-        )}
+        <button
+          onClick={() => handleStartTest(test)}
+          className={`w-full flex items-center justify-center gap-2 ${test.is_completed ? 'bg-red-500 hover:bg-red-600' : 'bg-[#0096b1] hover:bg-[#eb7e37]'} text-white px-4 py-2 rounded-md transition-colors font-medium text-sm`}
+        >
+          {test.is_completed ? (
+            <RotateCw className="w-4 h-4" />
+          ) : (
+            <Play className="w-4 h-4" />
+          )}
+          <span>{test.is_completed ? 'Làm lại' : 'Bắt đầu'}</span>
+        </button>
       </div>
     </div>
   );
@@ -419,13 +512,19 @@ const Writing_Fe = () => {
       <Navbar />
 
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <nav className="flex" aria-label="Breadcrumb">
-          <ol className="flex items-center space-x-2">
-            <li><Link to="/" className="text-gray-500 hover:text-lime-500">Home</Link></li>
-            <li><span className="text-gray-400 mx-2">/</span></li>
-            <li><span className="text-lime-500 font-medium">Writing Tests</span></li>
-          </ol>
-        </nav>
+        <div className="flex justify-between items-center">
+          <nav className="flex" aria-label="Breadcrumb">
+            <ol className="flex items-center space-x-2">
+              <li><Link to="/" className="text-gray-500 hover:text-[#0096b1]">Home</Link></li>
+              <li><span className="text-gray-400 mx-2">/</span></li>
+              <li><span className="text-[#0096b1] font-medium">Writing Tests</span></li>
+            </ol>
+          </nav>
+          <div className="text-sm font-semibold text-red-700 mt-5">
+            <p>* Nâng cấp VIP Listening và Reading để mở khóa thêm 6 lượt chấm điểm AI Writing miễn phí mỗi ngày. *</p>
+            <p>* Số lượt chấm điểm bằng AI miễn phí còn lại trong ngày: {aiRemaining} *</p>
+          </div>
+        </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-4">
@@ -445,8 +544,9 @@ const Writing_Fe = () => {
             value={sortOrder}
             onChange={(e) => setSortOrder(e.target.value)}
           >
-            <option value="latest">Latest</option>
-            <option value="oldest">Oldest</option>
+            <option value="alphabet">Theo Alphabet</option>
+            <option value="latest">Mới nhất</option>
+            <option value="oldest">Cũ nhất</option>
           </select>
         </div>
 
@@ -461,7 +561,7 @@ const Writing_Fe = () => {
             disabled={currentPage === 1}
             className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-50"
           >
-            <ChevronLeft className="w-5 h-5" strokeWidth={3}/>
+            <ChevronLeft className="w-5 h-5" strokeWidth={3} />
           </button>
           <span className="text-gray-600 font-bold">
             Page {currentPage} of {totalPages}
@@ -471,7 +571,7 @@ const Writing_Fe = () => {
             disabled={currentPage === totalPages}
             className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-50"
           >
-            <ChevronRight className="w-5 h-5" strokeWidth={3}/>
+            <ChevronRight className="w-5 h-5" strokeWidth={3} />
           </button>
         </div>
 

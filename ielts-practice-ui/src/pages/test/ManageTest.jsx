@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { PowerOff, Home, ChevronRight, Plus, Edit, Eye, Trash2, AlertTriangle, Power } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { PowerOff, Home, ChevronRight, Plus, Edit, Eye,FileText, Trash2, AlertTriangle, Power } from 'lucide-react';
 import { format } from 'date-fns';
 import { Dialog, Transition } from '@headlessui/react';
 import EditAccessDialog from '../../components/dialogs/EditAccessDialog';
 import { Toaster, toast } from 'react-hot-toast';
+import { API_BASE } from '../../config/api';
 
 const ManageTest = () => {
     const [tests, setTests] = useState([]);
+const navigate = useNavigate();
     const [currentPage, setCurrentPage] = useState(1);
     const [testsPerPage] = useState(7);
+const [loading, setLoading] = useState(false);
     const [isEditAccessDialogOpen, setIsEditAccessDialogOpen] = useState(false);
     const [testToEdit, setTestToEdit] = useState(null);
     const [selectedAccessTypes, setSelectedAccessTypes] = useState([]);
@@ -23,8 +26,15 @@ const ManageTest = () => {
         search: '',
         sortBy: 'created_at',
         type: 'all',
-        status: 'all'  // Add status filter
+        status: 'all'
     });
+    const [isSampleDialogOpen, setIsSampleDialogOpen] = useState(false);
+    const [sampleExamId, setSampleExamId] = useState(null);
+    const [sampleTasks, setSampleTasks] = useState([]);
+    const [samplePart1, setSamplePart1] = useState('');
+    const [samplePart2, setSamplePart2] = useState('');
+    const [savingSample, setSavingSample] = useState(false);
+    const [readingForecastMap, setReadingForecastMap] = useState({});
 
     useEffect(() => {
         fetchTests();
@@ -32,20 +42,39 @@ const ManageTest = () => {
 
     const fetchTests = async () => {
         try {
-            const response = await fetch('http://localhost:8000/admin/ielts-exams', {
+            const response = await fetch(`${API_BASE}/admin/dashboard/exams?skip=0&limit=10000`, {
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('access_token')}`
                 }
             });
             const data = await response.json();
             setTests(data);
+            // Preload reading forecast status for tests that include reading
+            const readingTests = (Array.isArray(data) ? data : []).filter(t => Array.isArray(t.section_types) && t.section_types.includes('reading'));
+            const token = localStorage.getItem('access_token');
+            const requests = readingTests.map(t => (
+                fetch(`${API_BASE}/admin/reading-test/${t.exam_id}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                })
+                .then(res => res.ok ? res.json() : null)
+                .then(d => {
+                    const parts = Array.isArray(d?.sections) ? d.sections.filter(s => !!s.is_forecast).map(s => s.order_number) : [];
+                    return { exam_id: t.exam_id, parts };
+                })
+                .catch(() => ({ exam_id: t.exam_id, parts: [] }))
+            ));
+            Promise.all(requests).then(results => {
+                const map = {};
+                results.forEach(r => { if (r) map[r.exam_id] = r.parts; });
+                setReadingForecastMap(map);
+            }).catch(() => {});
         } catch (error) {
             console.error('Error fetching tests:', error);
         }
     };
     const handleUpdateAccess = async (examId) => {
         try {
-            const response = await fetch(`http://localhost:8000/admin/ielts-exams/${examId}/access`, {
+            const response = await fetch(`${API_BASE}/admin/ielts-exams/${examId}/access`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
@@ -82,7 +111,7 @@ const ManageTest = () => {
     };
     const handleDelete = async (examId) => {
         try {
-            const response = await fetch(`http://localhost:8000/admin/delete-test/${examId}`, {
+            const response = await fetch(`${API_BASE}/admin/delete-test/${examId}`, {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('access_token')}`
@@ -97,9 +126,58 @@ const ManageTest = () => {
             console.error('Error deleting test:', error);
         }
     };
+ const handleEditTest = async (test) => {
+        console.log('Test object:', test);
+
+        try {
+            setLoading(true);
+
+            const response = await fetch(`${API_BASE}/admin/ielts-exam/${test.exam_id}`, {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                console.log('API Response:', data);
+
+                const isListeningTest = data.section_type === 'listening' ||
+                    (data.sections && data.sections.some(section => section.section_type === 'listening'));
+                const isReadingTest = data.section_type === 'reading' ||
+                    (data.sections && data.sections.some(section => section.section_type === 'reading'));
+                const isWritingTest = data.section_type === 'essay' ||
+                    (data.sections && data.sections.some(section => section.section_type === 'essay'));
+
+                if (isListeningTest) {
+                    navigate(`/edit_listening_test/${test.exam_id}`);
+                } else if (isWritingTest) {
+                    navigate(`/edit_writing_test/${test.exam_id}`);
+                }else if (isReadingTest) {
+                    navigate(`/edit_reading_test/${test.exam_id}`);
+                }
+                 else {
+                    toast('Editing is currently only available for listening and writing tests', {
+                        icon: 'ℹ️',
+                        style: {
+                            background: '#3B82F6',
+                            color: '#FFFFFF',
+                        },
+                    });
+                }
+            } else {
+                toast.error('Failed to fetch test details');
+            }
+        } catch (error) {
+            console.error('Error fetching test details:', error);
+            toast.error('An error occurred while checking test type');
+        } finally {
+            setLoading(false);
+        }
+    };
     const handleActivate = async (examId) => {
         try {
-            const response = await fetch(`http://localhost:8000/admin/ielts-exams/${examId}/status?active=true`, {
+            const response = await fetch(`${API_BASE}/admin/ielts-exams/${examId}/status?active=true`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
@@ -120,7 +198,7 @@ const ManageTest = () => {
     };
     const handleDeactivate = async (examId) => {
         try {
-            const response = await fetch(`http://localhost:8000/admin/ielts-exams/${examId}/status?active=false`, {
+            const response = await fetch(`${API_BASE}/admin/ielts-exams/${examId}/status?active=false`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
@@ -147,12 +225,28 @@ const ManageTest = () => {
                 (filters.status === 'active' && test.is_active) ||
                 (filters.status === 'inactive' && !test.is_active))
         )
+        .filter(test => {
+            if (filters.type === 'all') return true;
+            const types = Array.isArray(test.section_types) ? test.section_types : [];
+            if (filters.type === 'listening') return types.includes('listening');
+            if (filters.type === 'reading') return types.includes('reading');
+            if (filters.type === 'writing') return types.includes('essay') || types.includes('writing');
+            return true;
+        })
         .sort((a, b) => {
             if (filters.sortBy === 'title') {
                 return a.title.localeCompare(b.title);
             }
             return new Date(b.created_at) - new Date(a.created_at);
         });
+
+    const skillCounts = filteredTests.reduce((acc, test) => {
+        const types = Array.isArray(test.section_types) ? test.section_types : [];
+        if (types.includes('listening')) acc.listening += 1;
+        if (types.includes('reading')) acc.reading += 1;
+        if (types.includes('essay') || types.includes('writing')) acc.writing += 1;
+        return acc;
+    }, { listening: 0, reading: 0, writing: 0 });
 
     const indexOfLastTest = currentPage * testsPerPage;
     const indexOfFirstTest = indexOfLastTest - testsPerPage;
@@ -173,14 +267,112 @@ const ManageTest = () => {
                             <span className="text-violet-600 dark:text-violet-400">
                                 Manage Tests
                             </span>
-                        </div>
+        </div>
+        </div>
+
+        {/* Sample Essay Dialog */}
+        <Transition appear show={isSampleDialogOpen} as={React.Fragment}>
+            <Dialog as="div" className="relative z-50" onClose={() => setIsSampleDialogOpen(false)}>
+                <Transition.Child as={React.Fragment} enter="ease-out duration-300" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-200" leaveFrom="opacity-100" leaveTo="opacity-0">
+                    <div className="fixed inset-0 bg-black bg-opacity-25" />
+                </Transition.Child>
+
+                <div className="fixed inset-0 overflow-y-auto">
+                    <div className="flex min-h-full items-center justify-center p-4 text-center">
+                        <Transition.Child as={React.Fragment} enter="ease-out duration-300" enterFrom="opacity-0 scale-95" enterTo="opacity-100 scale-100" leave="ease-in duration-200" leaveFrom="opacity-100 scale-100" leaveTo="opacity-0 scale-95">
+                            <Dialog.Panel className="w-full max-w-2xl transform overflow-hidden rounded-2xl bg-white dark:bg-gray-800 p-6 text-left align-middle shadow-xl transition-all">
+                                <Dialog.Title className="text-lg font-medium text-gray-900 dark:text-white">Add Sample Essay</Dialog.Title>
+                                <div className="mt-4 space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Part 1 Sample</label>
+                                        <textarea value={samplePart1} onChange={(e) => setSamplePart1(e.target.value)} rows={8} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-violet-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Part 2 Sample</label>
+                                        <textarea value={samplePart2} onChange={(e) => setSamplePart2(e.target.value)} rows={8} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-violet-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+                                    </div>
+                                </div>
+                                <div className="mt-6 flex justify-end space-x-3">
+                                    <button onClick={() => setIsSampleDialogOpen(false)} className="inline-flex justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
+                                    <button
+                                        onClick={async () => {
+                                            if (!sampleExamId) return;
+                                            setSavingSample(true);
+                                            try {
+                                                // Update parts with current task metadata
+                                                const token = localStorage.getItem('access_token');
+                                                const p1 = sampleTasks.find(t => t.part_number === 1);
+                                                const p2 = sampleTasks.find(t => t.part_number === 2);
+                                                const requests = [];
+                                                if (p1) {
+                                                    requests.push(fetch(`${API_BASE}/admin/writing-test/${sampleExamId}/part/1`, {
+                                                        method: 'PUT',
+                                                        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify({
+                                                            part_number: 1,
+                                                            task_type: p1.task_type,
+                                                            title: p1.title,
+                                                            instructions: p1.instructions,
+                                                            word_limit: p1.word_limit,
+                                                            total_marks: p1.total_marks,
+                                                            duration: p1.duration,
+                                                            is_forecast: p1.is_forecast,
+                                                            sample_essay: samplePart1
+                                                        })
+                                                    }));
+                                                }
+                                                if (p2) {
+                                                    requests.push(fetch(`${API_BASE}/admin/writing-test/${sampleExamId}/part/2`, {
+                                                        method: 'PUT',
+                                                        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify({
+                                                            part_number: 2,
+                                                            task_type: p2.task_type,
+                                                            title: p2.title,
+                                                            instructions: p2.instructions,
+                                                            word_limit: p2.word_limit,
+                                                            total_marks: p2.total_marks,
+                                                            duration: p2.duration,
+                                                            is_forecast: p2.is_forecast,
+                                                            sample_essay: samplePart2
+                                                        })
+                                                    }));
+                                                }
+                                                const results = await Promise.all(requests);
+                                                if (results.every(r => r.ok)) {
+                                                    toast.success('Sample essays saved');
+                                                    setIsSampleDialogOpen(false);
+                                                    setSampleExamId(null);
+                                                    setSampleTasks([]);
+                                                    setSamplePart1('');
+                                                    setSamplePart2('');
+                                                } else {
+                                                    toast.error('Failed to save one or more parts');
+                                                }
+                                            } catch (e) {
+                                                toast.error('Error saving sample essays');
+                                            } finally {
+                                                setSavingSample(false);
+                                            }
+                                        }}
+                                        className={`inline-flex justify-center rounded-md bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 ${savingSample ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                        disabled={savingSample}
+                                    >
+                                        Save
+                                    </button>
+                                </div>
+                            </Dialog.Panel>
+                        </Transition.Child>
                     </div>
+                </div>
+            </Dialog>
+        </Transition>
                 </div>
             </nav>
 
             {/* Filters */}
             <div className="mb-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Search
@@ -209,6 +401,21 @@ const ManageTest = () => {
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Skill
+                        </label>
+                        <select
+                            value={filters.type}
+                            onChange={(e) => setFilters({ ...filters, type: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-violet-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                        >
+                            <option value="all">All Skills</option>
+                            <option value="listening">Listening</option>
+                            <option value="reading">Reading</option>
+                            <option value="writing">Writing</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Sort By
                         </label>
                         <select
@@ -220,6 +427,21 @@ const ManageTest = () => {
                             <option value="title">Title</option>
                         </select>
                     </div>
+                </div>
+            </div>
+
+            <div className="mb-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+                    <div className="text-sm text-gray-500 dark:text-gray-400">Listening Tests</div>
+                    <div className="mt-2 text-2xl font-semibold text-gray-900 dark:text-gray-100">{skillCounts.listening}</div>
+                </div>
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+                    <div className="text-sm text-gray-500 dark:text-gray-400">Reading Tests</div>
+                    <div className="mt-2 text-2xl font-semibold text-gray-900 dark:text-gray-100">{skillCounts.reading}</div>
+                </div>
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+                    <div className="text-sm text-gray-500 dark:text-gray-400">Writing Tests</div>
+                    <div className="mt-2 text-2xl font-semibold text-gray-900 dark:text-gray-100">{skillCounts.writing}</div>
                 </div>
             </div>
 
@@ -242,6 +464,19 @@ const ManageTest = () => {
                                         <span className="font-medium text-gray-700 dark:text-gray-200">
                                             {test.title}
                                         </span>
+                                        {Array.isArray(test.section_types) && test.section_types.includes('reading') && (
+                                            <div className="mt-1 text-xs">
+                                                {(() => {
+                                                    const parts = readingForecastMap[test.exam_id] || [];
+                                                    const hasForecast = parts.length > 0;
+                                                    return (
+                                                        <span className={`inline-block px-2 py-0.5 rounded-full ${hasForecast ? 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'}`}>
+                                                            {hasForecast ? `Reading Forecast: Part ${parts.join(', ')}` : 'Reading Forecast: None'}
+                                                        </span>
+                                                    );
+                                                })()}
+                                            </div>
+                                        )}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <span className="text-gray-600 dark:text-gray-400">
@@ -272,6 +507,43 @@ const ManageTest = () => {
                                             >
                                                 <Edit className="h-5 w-5" />
                                             </button>
+                                            <button
+                                                className="text-green-600 hover:text-green-700"
+                                                title="Edit Test"
+                                                onClick={() => handleEditTest(test)}
+                                            >
+                                                <FileText className="h-5 w-5" />
+                                            </button>
+                                            {(Array.isArray(test.section_types) && (test.section_types.includes('essay') || test.section_types.includes('writing'))) && (
+                                                <button
+                                                    className="text-teal-600 hover:text-teal-700"
+                                                    title="Add Sample Essay"
+                                                    onClick={async () => {
+                                                        setSampleExamId(test.exam_id);
+                                                        setIsSampleDialogOpen(true);
+                                                        try {
+                                                            const res = await fetch(`${API_BASE}/admin/writing-test/${test.exam_id}/details`, {
+                                                                headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
+                                                            });
+                                                            if (res.ok) {
+                                                                const data = await res.json();
+                                                                const tasks = Array.isArray(data.tasks) ? data.tasks : [];
+                                                                setSampleTasks(tasks);
+                                                                const p1 = tasks.find(t => t.part_number === 1);
+                                                                const p2 = tasks.find(t => t.part_number === 2);
+                                                                setSamplePart1(p1?.sample_essay || '');
+                                                                setSamplePart2(p2?.sample_essay || '');
+                                                            } else {
+                                                                toast.error('Failed to load writing tasks');
+                                                            }
+                                                        } catch (e) {
+                                                            toast.error('Error loading writing tasks');
+                                                        }
+                                                    }}
+                                                >
+                                                    <Plus className="h-5 w-5" />
+                                                </button>
+                                            )}
                                             {test.is_active ? (
                                                 <button
                                                     onClick={() => {

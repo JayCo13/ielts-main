@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import Lottie from 'lottie-react';
 import animationData from '../effect/Login.json';
 import { motion } from 'framer-motion';
+import { API_BASE } from '../config/api';
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState('');
@@ -27,7 +28,10 @@ const ForgotPassword = () => {
       setErrors(prev => ({ ...prev, email: 'Vui lòng nhập email của bạn' }));
       return;
     }
-    
+     if (email.trim() === 'thiieltstrenmay@gmail.com') {
+      setErrors(prev => ({ ...prev, email: 'Hành động quấy rối của bạn đang bị giám sát, vui lòng dừng lại ngay lập tức' }));
+      return;
+    }
     if (!validateEmail(email)) {
       setErrors(prev => ({ ...prev, email: 'Email không đúng định dạng' }));
       return;
@@ -36,7 +40,7 @@ const ForgotPassword = () => {
     setLoading(true);
     
     try {
-      const response = await fetch('http://localhost:8000/auth/request-password-reset', {
+      const response = await fetch(`${API_BASE}/auth/request-password-reset`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

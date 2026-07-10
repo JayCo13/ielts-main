@@ -1,0 +1,26 @@
+User-agent: *
+Allow: /
+
+# Public, indexable full-test landing pages (server-rendered by backend)
+Allow: /de-thi
+Allow: /de-thi/
+
+# Admin routes
+Disallow: /admin/
+Disallow: /login/admin
+Disallow: /admin/thiieltstrenmay.com/
+Disallow: /admin/thiieltstrenmay.com/*
+Disallow: /manage_student
+Disallow: /manage_test
+Disallow: /create_student
+Disallow: /create_listening_test
+Disallow: /create_writing_test
+Disallow: /create_reading_test
+Disallow: /create_speaking_test
+Disallow: /packages
+Disallow: /transactions
+Disallow: /subscriptions
+Disallow: /settings
+
+# Sitemap
+Sitemap: https://thiieltstrenmay.com/sitemap.xml

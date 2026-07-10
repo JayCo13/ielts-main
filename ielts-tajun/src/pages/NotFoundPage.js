@@ -84,7 +84,7 @@ const NotFoundPage = () => {
               Không tìm thấy trang
             </h2>
             <p className="text-gray-600">
-              Trang bạn đang tìm kiếm không tồn tại hoặc đã được di chuyển.
+              Trang bạn đang tìm kiếm không tồn tại hoặc đã được xoá.
             </p>
           </motion.div>
 

@@ -1,15 +1,18 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { ChevronRight, Home, Headphones, FileText, Info } from 'lucide-react';
+import { ChevronRight, Home, Headphones, Info, Bold } from 'lucide-react';
 import { Editor } from '@tinymce/tinymce-react';
 import { ToastContainer, toast } from 'react-toastify';
 import TestDetailsDialog from '../../components/TestDetailsDialog';
+import RichTextEditor from '../../components/editor/RichTextEditor';
 import '../../css/split.css';
 import Split from 'react-split';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-alpine.css';
 import 'react-grid-layout/css/styles.css';
 import 'react-toastify/dist/ReactToastify.css';
+import { API_BASE } from '../../config/api';
+
 
 const CreateListeningTest = () => {
     const QUESTION_TYPES = [
@@ -34,7 +37,11 @@ const CreateListeningTest = () => {
     const [testData, setTestData] = useState({
         title: '',
         duration: 2400,
-        total_marks: 40
+        total_marks: 40,
+        part1_description: '',
+        part2_description: '',
+        part3_description: '',
+        part4_description: ''
     });
 
     const [examId, setExamId] = useState(null);
@@ -45,7 +52,6 @@ const CreateListeningTest = () => {
         { field: 'question_text', headerName: 'Question', width: 300 },
         { field: 'marks', headerName: 'Marks', width: 100 }
     ];
-
     const getInitialQuestionState = (type = 'multiple_choice') => {
         const baseQuestion = {
             question_type: type,
@@ -102,13 +108,20 @@ const CreateListeningTest = () => {
         questions: Array(10).fill(null).map(() => getInitialQuestionState())
     });
 
+    // Single editor for the part transcript. The transcript text contains
+    // bolded numbered markers (<strong>1</strong>, etc.) which the backend
+    // parses to extract per-question contexts — see admin_actions.py
+    // update_listening_part. We do NOT mirror the transcript into individual
+    // questions[*].question_text here; doing so caused two bugs:
+    //   1. Switching currentIndex wiped the transcript admin had typed.
+    //   2. The first question received the whole transcript, polluting the
+    //      test card preview on the user side ("title shows transcript").
+    // Pattern matches EditListeningTest's handleEditorChange.
     const handleEditorChange = (content) => {
         setEditorContent(content);
-        const updatedQuestions = [...currentPart.questions];
-        updatedQuestions[currentIndex].question_text = content;
         setCurrentPart({
             ...currentPart,
-            questions: updatedQuestions
+            transcript: content
         });
     };
 
@@ -167,7 +180,7 @@ const CreateListeningTest = () => {
         if (!validateInitialization()) return;
 
         try {
-            const response = await fetch('http://localhost:8000/admin/initialize-listening-test', {
+            const response = await fetch(`${API_BASE}/admin/initialize-listening-test`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -228,7 +241,7 @@ const CreateListeningTest = () => {
             formData.append('transcript', editorContent);
             formData.append('questions_json', JSON.stringify(formattedQuestions));
 
-            const response = await fetch(`http://localhost:8000/admin/listening-test/${examId}/part/${partNumber}`, {
+            const response = await fetch(`${API_BASE}/admin/listening-test/${examId}/part/${partNumber}`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('access_token')}`
@@ -245,6 +258,8 @@ const CreateListeningTest = () => {
                     transcript: '',
                     questions: Array(10).fill(null).map(() => getInitialQuestionState())
                 });
+                setEditorContent('');
+                setCurrentIndex(0);
                 setCurrentStep(partNumber + 2);
                 toast.success(`Part ${partNumber} saved successfully!`);
             } else {
@@ -345,6 +360,44 @@ const CreateListeningTest = () => {
                                 className="w-full px-4 py-2 rounded-lg border text-black [&::placeholder]:text-black"
                                 placeholder="Enter test title"
                             />
+                            <div className="grid grid-cols-1 gap-4">
+                                <div className="mb-2">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Part 1 Description</label>
+                                    <RichTextEditor
+                                        value={testData.part1_description}
+                                        onChange={(html) => setTestData({ ...testData, part1_description: html })}
+                                        className="w-full px-4 py-2 rounded-lg border text-black [&::placeholder]:text-black min-h-[150px]"
+                                        placeholder="Enter detailed description for Part 1"
+                                    />
+                                </div>
+                                <div className="mb-2">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Part 2 Description</label>
+                                    <RichTextEditor
+                                        value={testData.part2_description}
+                                        onChange={(html) => setTestData({ ...testData, part2_description: html })}
+                                        className="w-full px-4 py-2 rounded-lg border text-black [&::placeholder]:text-black min-h-[150px]"
+                                        placeholder="Enter detailed description for Part 2"
+                                    />
+                                </div>
+                                <div className="mb-2">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Part 3 Description</label>
+                                    <RichTextEditor
+                                        value={testData.part3_description}
+                                        onChange={(html) => setTestData({ ...testData, part3_description: html })}
+                                        className="w-full px-4 py-2 rounded-lg border text-black [&::placeholder]:text-black min-h-[150px]"
+                                        placeholder="Enter detailed description for Part 3"
+                                    />
+                                </div>
+                                <div className="mb-2">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Part 4 Description</label>
+                                    <RichTextEditor
+                                        value={testData.part4_description}
+                                        onChange={(html) => setTestData({ ...testData, part4_description: html })}
+                                        className="w-full px-4 py-2 rounded-lg border text-black [&::placeholder]:text-black min-h-[150px]"
+                                        placeholder="Enter detailed description for Part 4"
+                                    />
+                                </div>
+                            </div>
                             <button
                                 onClick={handleInitializeTest}
                                 className="w-full bg-violet-600 text-white py-2 rounded-lg"
@@ -417,7 +470,7 @@ const CreateListeningTest = () => {
                                 <Editor
                                     apiKey="mbitaig1o57ii8l8aa8wx4b4le9cc1e0aw5t2c1lo4axii6u"
                                     onInit={(evt, editor) => editorRef.current = editor}
-                                    value={currentPart.questions[currentIndex]?.question_text}
+                                    value={editorContent}
                                     init={{
                                         height: '100%',
                                         menubar: false,
@@ -429,7 +482,7 @@ const CreateListeningTest = () => {
                                         ],
                                         toolbar: [
                                             'undo redo | blocks | fontsize | bold italic | alignleft aligncenter alignright alignjustify',
-                                            'bullist numlist | outdent indent | checkbox radio textfield | image sidebyside | ieltstable | dragdrop | reformat',
+                                            'bullist numlist | outdent indent | checkbox radio textfield | image sidebyside | ieltstable | dragdrop | reformat | separator',
                                             'removeformat | help'
                                         ],
                                         fontsize_formats: '8pt 10pt 12pt 14pt 16pt 18pt 20pt 24pt 36pt',
@@ -451,6 +504,14 @@ const CreateListeningTest = () => {
                                                 onAction: () => {
                                                     editor.execCommand('fontName', false, 'Calibri');
                                                     editor.execCommand('fontSize', false, '12pt');
+                                                }
+                                            });
+                                            // Add question separator button
+                                            editor.ui.registry.addButton('separator', {
+                                                text: 'Add Separator',
+                                                tooltip: 'Insert question separator',
+                                                onAction: () => {
+                                                    editor.insertContent('<div class="question-separator"></div>');
                                                 }
                                             });
                                             // Enhanced checkbox button
@@ -652,6 +713,7 @@ const CreateListeningTest = () => {
                                         },
                                         content_style: `
     body { font-family:Helvetica,Arial,sans-serif; font-size:12pt }
+    
     input[type="checkbox"].ielts-checkbox { margin-right: 5px; transform: scale(1.2); }
     input[type="radio"].ielts-radio { margin-right: 5px; transform: scale(1.2); }
     input[type="text"].ielts-textfield { 

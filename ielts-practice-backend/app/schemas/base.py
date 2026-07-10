@@ -29,16 +29,6 @@ class QuestionOptionBase(BaseModel):
     option_text: str
     is_correct: bool
 
-class SpeakingTopicBase(BaseModel):
-    title: str
-    description: str
-    is_active: bool
-
-class SpeakingQuestionBase(BaseModel):
-    question_text: str
-    sample_answer: str
-    order_number: int
-
 class WritingTaskBase(BaseModel):
     task_type: str
     instructions: str

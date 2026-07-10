@@ -1,8 +1,9 @@
 import React, { useEffect } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { Edit } from 'lucide-react';
+import { API_BASE } from '../../config/api';
 
-const EditAccessDialog = ({ 
+const EditAccessDialog = ({
     isOpen, 
     onClose, 
     onUpdate, 
@@ -18,7 +19,7 @@ const EditAccessDialog = ({
 
     const fetchExamAccessTypes = async () => {
         try {
-            const response = await fetch(`http://localhost:8000/admin/ielts-exams/${examId}/access`, {
+            const response = await fetch(`${API_BASE}/admin/ielts-exams/${examId}/access`, {
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('access_token')}`
                 }

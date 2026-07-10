@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
+import { API_BASE } from './config/api';
 
 const StudentGuard = () => {
   const [status, setStatus] = useState(null);
@@ -14,7 +15,7 @@ const StudentGuard = () => {
     const checkAccess = async () => {
       // If no token or role, just render children (public access)
       if (!token || !role) {
-        console.log('StudentGuard: No token or role found, allowing public access');
+    
         setLoading(false);
         return;
       }
@@ -24,50 +25,43 @@ const StudentGuard = () => {
         if (role === 'student') {
           // Only proceed if we have a valid studentId
           if (!studentId) {
-            console.log('StudentGuard: No studentId found');
+           
             setLoading(false);
             return;
           }
-          endpoint = `http://localhost:8000/students/student-side/${studentId}`;
+          endpoint = `${API_BASE}/students/student-side/${studentId}`;
         } else if (role === 'customer') {
-          endpoint = 'http://localhost:8000/customer/vip/subscription/status';
+          endpoint = `${API_BASE}/customer/vip/subscription/status`;
         }
 
         if (!endpoint) {
-          console.log('StudentGuard: No valid endpoint for role:', role);
+        
           setLoading(false);
           return;
         }
 
-        console.log('StudentGuard: Checking access at endpoint:', endpoint);
+        
         const response = await fetch(endpoint, {
           headers: { Authorization: `Bearer ${token}` }
         });
 
-        console.log(`StudentGuard: ${endpoint} response status:`, response.status);
+        
 
         if (response.status === 403) {
-          console.log('StudentGuard: Access forbidden');
+         
           setStatus({ is_active: false });
         } else {
           const data = await response.json();
-          console.log('StudentGuard: Response data:', data);
+         
           
           // For student role, check is_active
           if (role === 'student') {
-            console.log('StudentGuard: Student status:', {
-              is_active: data.is_active,
-              is_active_student: data.is_active_student
-            });
+        
             setStatus(data);
           } 
           // For customer role, check is_active
           else if (role === 'customer') {
-            console.log('StudentGuard: Customer status:', {
-              is_active: data.is_active,
-              payment_status: data.payment_status,
-              package_name: data.package_name
-            });
+          
             setStatus(data);
           }
         }
@@ -128,18 +122,7 @@ const StudentGuard = () => {
     return <Outlet />;
   }
 
-  // Debug log before revoked dialog check
-  if (role === 'student' && status) {
-    console.log('StudentGuard: status before dialog', status);
-    console.log('StudentGuard: typeof is_active', typeof status.is_active, status.is_active);
-    console.log('StudentGuard: typeof is_active_student', typeof status.is_active_student, status.is_active_student);
-  }
   
-  // Debug log for customer role
-  if (role === 'customer' && status) {
-    console.log('StudentGuard: customer status before dialog', status);
-    console.log('StudentGuard: typeof is_active', typeof status.is_active, status.is_active);
-  }
   
   // Show revoked access dialog for students
   if (
@@ -202,7 +185,7 @@ const StudentGuard = () => {
           <button
             className="px-6 py-2 bg-lime-500 text-white rounded-lg"
             onClick={async () => {
-              await fetch('http://localhost:8000/student/activate-account', {
+              await fetch(`${API_BASE}/activate-account`, {
                 method: 'POST',
                 headers: { Authorization: `Bearer ${token}` }
               });

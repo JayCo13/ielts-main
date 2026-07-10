@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Editor } from '@tinymce/tinymce-react';
+import CustomRichTextEditor from './CustomRichTextEditor';
 import { X, Check } from 'lucide-react';
+import { API_BASE } from '../config/api';
 
 const EditEssayDialog = ({ isOpen, onClose, taskId, partNumber }) => {
   const [essay, setEssay] = useState('');
@@ -8,7 +9,7 @@ const EditEssayDialog = ({ isOpen, onClose, taskId, partNumber }) => {
   const [notification, setNotification] = useState({ show: false, message: '' });
   const [testTitle, setTestTitle] = useState(''); // Add this line
   const [isSaving, setIsSaving] = useState(false);
-  
+
   // Add isSaving reset to useEffect
   useEffect(() => {
     if (isOpen && taskId) {
@@ -30,12 +31,12 @@ const EditEssayDialog = ({ isOpen, onClose, taskId, partNumber }) => {
   const fetchEssay = async () => {
     const token = localStorage.getItem('token');
     try {
-      const response = await fetch(`http://localhost:8000/student/writing/part/${taskId.task_id}/essay`, {
+      const response = await fetch(`${API_BASE}/student/writing/part/${taskId.task_id}/essay`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
-  
+
       if (response.ok) {
         const data = await response.json();
         setEssay(data.essay?.answer_text || '');
@@ -47,15 +48,15 @@ const EditEssayDialog = ({ isOpen, onClose, taskId, partNumber }) => {
       setLoading(false);
     }
   };
-  
+
   // Update handleSave function
   const handleSave = async () => {
     if (isSaving) return; // Prevent multiple clicks
     setIsSaving(true);
-    
+
     const token = localStorage.getItem('token');
     try {
-      const response = await fetch(`http://localhost:8000/student/writing/part/${taskId.task_id}/essay`, {
+      const response = await fetch(`${API_BASE}/student/writing/part/${taskId.task_id}/essay`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -65,13 +66,13 @@ const EditEssayDialog = ({ isOpen, onClose, taskId, partNumber }) => {
           answer_text: essay
         })
       });
-  
+
       if (response.ok) {
-        setNotification({ 
-          show: true, 
-          message: 'Essay updated successfully!' 
+        setNotification({
+          show: true,
+          message: 'Essay updated successfully!'
         });
-        
+
         // Hide notification after 5 seconds
         setTimeout(() => {
           setNotification({ show: false, message: '' });
@@ -84,9 +85,9 @@ const EditEssayDialog = ({ isOpen, onClose, taskId, partNumber }) => {
       }
     } catch (error) {
       console.error('Error updating essay:', error);
-      setNotification({ 
-        show: true, 
-        message: 'Failed to update essay. Please try again.' 
+      setNotification({
+        show: true,
+        message: 'Failed to update essay. Please try again.'
       });
       // Hide error notification after 5 seconds
       setTimeout(() => {
@@ -101,16 +102,15 @@ const EditEssayDialog = ({ isOpen, onClose, taskId, partNumber }) => {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
         {notification.show && (
-          <div className={`absolute top-4 right-4 flex items-center gap-2 px-4 py-2 rounded-lg ${
-            notification.message.includes('successfully') 
-              ? 'bg-green-100 text-green-700' 
-              : 'bg-red-100 text-red-700'
-          }`}>
+          <div className={`absolute top-4 right-4 flex items-center gap-2 px-4 py-2 rounded-lg ${notification.message.includes('successfully')
+            ? 'bg-green-100 text-green-700'
+            : 'bg-red-100 text-red-700'
+            }`}>
             {notification.message.includes('successfully') && <Check className="w-4 h-4" />}
             {notification.message}
           </div>
         )}
-        
+
         <div className="flex justify-between items-center p-4 border-b">
           <button onClick={() => onClose(false)} className="p-2 hover:bg-gray-100 rounded-lg">
             <X className="w-5 h-5" />
@@ -130,44 +130,23 @@ const EditEssayDialog = ({ isOpen, onClose, taskId, partNumber }) => {
         {taskId && typeof taskId === 'object' && taskId.rewritten_essay && (
           <div className="bg-lime-50 border-b border-lime-100 px-4 py-4 m-2">
             <p className="text-sm text-lime-700 text-center">
-            Đây là phiên bản 8+ của bài luận dựa trên cấu trúc bài của bạn được gợi ý bằng AI. Bạn có thể chỉnh sửa thêm trước khi lưu.
+              Đây là phiên bản 8+ của bài luận dựa trên cấu trúc bài của bạn được gợi ý bằng AI. Bạn có thể chỉnh sửa thêm trước khi lưu.
             </p>
           </div>
         )}
-        
+
         <div className="flex-1 p-4 overflow-auto">
           {loading ? (
             <div className="flex items-center justify-center h-full">
               <p>Loading essay...</p>
             </div>
           ) : (
-            <Editor
-              apiKey="mbitaig1o57ii8l8aa8wx4b4le9cc1e0aw5t2c1lo4axii6u"
+            <CustomRichTextEditor
               value={essay}
-              onEditorChange={(content) => setEssay(content)}
-              init={{
-                height: 'calc(100vh-300px)',
-                width: '100%',
-                menubar: false,
-                plugins: ['wordcount'],
-                toolbar: false,
-                content_style: `
-                  body { 
-                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; 
-                    font-size: 16px; 
-                    padding: 20px;
-                    line-height: 1.6;
-                  }
-                  p {
-                    margin-bottom: 1.5em;
-                  }
-                `,
-                formats: {
-                  p: { block: 'p', styles: { 'margin-bottom': '1.5em' } }
-                },
-                forced_root_block: 'p',
-                statusbar: false,
-              }}
+              onChange={(content) => setEssay(content)}
+              textSize="regular"
+              colorTheme="black-on-white"
+              className="w-full"
             />
           )}
         </div>
@@ -182,11 +161,10 @@ const EditEssayDialog = ({ isOpen, onClose, taskId, partNumber }) => {
           <button
             onClick={handleSave}
             disabled={isSaving}
-            className={`px-4 py-2 rounded-lg transition-colors ${
-              isSaving 
-                ? 'bg-gray-400 cursor-not-allowed' 
-                : 'bg-lime-500 hover:bg-lime-600 text-white'
-            }`}
+            className={`px-4 py-2 rounded-lg transition-colors ${isSaving
+              ? 'bg-gray-400 cursor-not-allowed'
+              : 'bg-[#0096b1]/80 hover:bg-[#0096b1]/100 text-white'
+              }`}
           >
             {isSaving ? 'Saving...' : 'Save Changes'}
           </button>

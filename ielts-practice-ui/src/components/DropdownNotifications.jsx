@@ -2,7 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Transition from '../utils/Transition';
 import { format } from 'date-fns';
-import { Bell, BookOpen, DollarSign, MessageSquare, Mic } from 'lucide-react';
+import { Bell, BookOpen, DollarSign, MessageSquare, Mic, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { API_BASE } from '../config/api';
 
 function DropdownNotifications({ align }) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -10,19 +11,19 @@ function DropdownNotifications({ align }) {
   const [loading, setLoading] = useState(false);
   const [hasNewNotifications, setHasNewNotifications] = useState(false);
   const [error, setError] = useState(null);
-  
+
   const trigger = useRef(null);
   const dropdown = useRef(null);
   const originalTitle = useRef(document.title);
   const notificationSound = useRef(new Audio('/sounds/notification.mp3'));
   const lastChecked = useRef(localStorage.getItem('last_notification_checked') || new Date().toISOString());
   const navigate = useNavigate();
-  
+
   // Add the handleNotificationItemClick function inside the component
   const handleNotificationItemClick = (notification) => {
     // Navigate based on notification type
     if (notification.type === 'vip_transaction') {
-      navigate('/transactions');
+      navigate('/subscriptions');
     } else if (notification.type === 'writing_submission') {
       navigate('/admin/writing-submissions');
     } else if (notification.type === 'speaking_submission') {
@@ -30,11 +31,11 @@ function DropdownNotifications({ align }) {
     } else if (notification.type === 'exam_completion') {
       navigate('/admin/exam-results');
     }
-    
+
     // Mark notification as read when clicked
     if (!notification.is_read) {
       try {
-        fetch('http://localhost:8000/admin/notifications/mark-read', {
+        fetch(`${API_BASE}/admin/notifications/mark-read`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
@@ -46,11 +47,11 @@ function DropdownNotifications({ align }) {
         }).then(response => {
           if (response.ok) {
             // Update local state to mark this notification as read
-            setNotifications(prev => 
-              prev.map(item => 
-                item.id === notification.id 
-                ? {...item, is_read: true} 
-                : item
+            setNotifications(prev =>
+              prev.map(item =>
+                item.id === notification.id
+                  ? { ...item, is_read: true }
+                  : item
               )
             );
           }
@@ -59,7 +60,7 @@ function DropdownNotifications({ align }) {
         console.error('Lỗi khi đánh dấu thông báo đã đọc:', error);
       }
     }
-    
+
     // Close dropdown
     setDropdownOpen(false);
   };
@@ -78,20 +79,20 @@ function DropdownNotifications({ align }) {
   const fetchNotifications = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:8000/admin/dashboard/notifications', {
+      const response = await fetch(`${API_BASE}/admin/dashboard/notifications`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`
         }
       });
 
       if (!response.ok) throw new Error('Không thể tải thông báo');
-      
+
       const data = await response.json();
       console.log('Dữ liệu thông báo:', data); // Debug log
-      
+
       // Make sure we have the full data
       const latestNotifications = data.slice(0, 4);
-      
+
       // Check for new notifications based on is_read flag
       const hasUnread = latestNotifications.some(notification => notification.is_read === false);
 
@@ -104,7 +105,7 @@ function DropdownNotifications({ align }) {
           console.log('Phát âm thanh thất bại:', err);
         }
       }
-      
+
       setNotifications(latestNotifications);
     } catch (err) {
       setError('Không thể tải thông báo');
@@ -116,18 +117,18 @@ function DropdownNotifications({ align }) {
 
   const handleNotificationClick = async () => {
     setDropdownOpen(!dropdownOpen);
-    
+
     // Only mark as read when closing the dropdown, not when opening it
     if (dropdownOpen && hasNewNotifications) {
       try {
         const unreadNotifications = notifications
           .filter(notification => notification.is_read === false)
           .map(notification => notification.id);
-    
+
         if (unreadNotifications.length > 0) {
           console.log('Đánh dấu đã đọc:', unreadNotifications);
-          
-          const response = await fetch('http://localhost:8000/admin/notifications/mark-read', {
+
+          const response = await fetch(`${API_BASE}/admin/notifications/mark-read`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
@@ -137,20 +138,20 @@ function DropdownNotifications({ align }) {
               notification_ids: unreadNotifications
             })
           });
-    
+
           if (response.ok) {
             const result = await response.json();
             console.log('Phản hồi đánh dấu đã đọc:', result);
-            
+
             // Update local notification state to reflect read status
-            setNotifications(prev => 
-              prev.map(notification => 
-                result.notification_ids.includes(notification.id) 
-                ? {...notification, is_read: true} 
-                : notification
+            setNotifications(prev =>
+              prev.map(notification =>
+                result.notification_ids.includes(notification.id)
+                  ? { ...notification, is_read: true }
+                  : notification
               )
             );
-            
+
             setHasNewNotifications(false);
             document.title = originalTitle.current;
             lastChecked.current = new Date().toISOString();
@@ -167,7 +168,7 @@ function DropdownNotifications({ align }) {
   useEffect(() => {
     fetchNotifications();
     const interval = setInterval(fetchNotifications, 30000); // Check every 30 seconds
-    
+
     return () => {
       clearInterval(interval);
       document.title = originalTitle.current;
@@ -186,6 +187,16 @@ function DropdownNotifications({ align }) {
       speaking_submission: <Mic className="inline-block w-4 h-4 mr-2 text-amber-500" />
     };
     return icons[type] || null;
+  };
+
+  const getStatusIcon = (notification) => {
+    if (notification.type !== 'vip_transaction') return null;
+    if (notification.status === 'completed') {
+      return <CheckCircle className="w-3.5 h-3.5 text-green-500 ml-1" />;
+    } else if (notification.status === 'reject') {
+      return <XCircle className="w-3.5 h-3.5 text-red-500 ml-1" />;
+    }
+    return <Clock className="w-3.5 h-3.5 text-yellow-500 ml-1" />;
   };
 
   return (
@@ -219,17 +230,17 @@ function DropdownNotifications({ align }) {
             <span>Thông báo</span>
             {loading && <span className="text-xs text-gray-500">Đang tải...</span>}
           </div>
-          
+
           {error && (
             <div className="px-4 py-2 text-sm text-red-500">{error}</div>
           )}
-          
+
           {!loading && !error && notifications.length === 0 && (
             <div className="px-4 py-8 text-center">
               <p className="text-sm text-gray-500 dark:text-gray-400">Không có thông báo</p>
             </div>
           )}
-          
+
           <ul className="max-h-80 overflow-y-auto">
             {notifications.map((notification) => {
               console.log(`Thông báo ${notification.id} đã đọc:`, notification.is_read);
@@ -237,20 +248,18 @@ function DropdownNotifications({ align }) {
                 <li key={notification.id} className="border-b border-gray-200 dark:border-gray-700/60 last:border-0">
                   <div
                     onClick={() => handleNotificationItemClick(notification)}
-                    className={`block py-2 px-4 hover:bg-gray-50 dark:hover:bg-gray-700/20 cursor-pointer ${
-                      notification.is_read === true
-                        ? 'bg-gray-50 dark:bg-gray-800' 
-                        : 'bg-blue-100 dark:bg-blue-900/30 border-l-4 border-blue-500'
-                    }`}
+                    className={`block py-2 px-4 hover:bg-gray-50 dark:hover:bg-gray-700/20 cursor-pointer ${notification.is_read === true
+                      ? 'bg-gray-50 dark:bg-gray-800'
+                      : 'bg-blue-100 dark:bg-blue-900/30 border-l-4 border-blue-500'
+                      }`}
                   >
                     <div className="flex justify-between items-start mb-1">
                       <span className="block text-sm">
-                        {getNotificationIcon(notification.type)}
-                        <span className={`font-medium ${
-                          notification.is_read === true
-                            ? 'text-gray-800 dark:text-gray-100' 
-                            : 'text-blue-800 dark:text-blue-200'
-                        }`}>{notification.title}</span>
+                        {notification.type === 'vip_transaction' ? getStatusIcon(notification) : getNotificationIcon(notification.type)}
+                        <span className={`font-medium ml-1 ${notification.is_read === true
+                          ? 'text-gray-800 dark:text-gray-100'
+                          : 'text-blue-800 dark:text-blue-200'
+                          }`}>{notification.title}</span>
                         {' '}{notification.message}
                       </span>
                       {!notification.is_read && (

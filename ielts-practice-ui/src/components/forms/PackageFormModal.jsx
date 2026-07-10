@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { AlertCircle, Check, X } from 'lucide-react';
 import { toast } from 'react-toastify';
+import { API_BASE } from '../../config/api';
 
 const PackageFormModal = ({ onClose, onSuccess, isCreate, packageData }) => {
   const [formData, setFormData] = useState({
@@ -83,9 +84,9 @@ const PackageFormModal = ({ onClose, onSuccess, isCreate, packageData }) => {
     setError(null);
 
     try {
-      let url = isCreate 
-        ? 'http://localhost:8000/admin/vip/packages' 
-        : `http://localhost:8000/admin/vip/packages/${packageData.package_id}`;
+      let url = isCreate
+        ? `${API_BASE}/admin/vip/packages`
+        : `${API_BASE}/admin/vip/packages/${packageData.package_id}`;
       
       // Build query parameters
       const params = new URLSearchParams({

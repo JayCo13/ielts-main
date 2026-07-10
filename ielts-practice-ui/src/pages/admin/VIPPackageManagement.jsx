@@ -4,6 +4,7 @@ import { Plus, Edit, AlertCircle, Home, ChevronRight } from 'lucide-react';
 import { ToastContainer, toast } from 'react-toastify';
 import PackageFormModal from '../../components/forms/PackageFormModal';
 import 'react-toastify/dist/ReactToastify.css';
+import { API_BASE } from '../../config/api';
 
 const VIPPackageManagement = () => {
   const [packages, setPackages] = useState([]);
@@ -18,16 +19,16 @@ const VIPPackageManagement = () => {
   const fetchPackages = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:8000/admin/vip/packages', {
+      const response = await fetch(`${API_BASE}/admin/vip/packages`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`
         }
       });
-      
+
       if (!response.ok) {
         throw new Error('Không thể tải dữ liệu gói dịch vụ');
       }
-      
+
       const data = await response.json();
       setPackages(data);
     } catch (err) {
@@ -77,7 +78,7 @@ const VIPPackageManagement = () => {
         params.append('skill_type', pkg.skill_type);
       }
 
-      const url = `http://localhost:8000/admin/vip/packages/${pkg.package_id}?${params.toString()}`;
+      const url = `${API_BASE}/admin/vip/packages/${pkg.package_id}?${params.toString()}`;
 
       const response = await fetch(url, {
         method: 'PUT',
@@ -101,7 +102,7 @@ const VIPPackageManagement = () => {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <ToastContainer position="top-right" autoClose={3000} />
-      
+
       {/* Breadcrumb Navigation */}
       <nav className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 rounded-lg mb-6">
         <div className="max-w-6xl mx-auto px-4 py-3">
@@ -109,7 +110,7 @@ const VIPPackageManagement = () => {
             <Link to="/" className="text-gray-400 hover:text-violet-600 transition-colors">
               <Home size={20} />
             </Link>
-           
+
             <ChevronRight size={16} className="text-gray-400" />
             <span className="text-violet-600 dark:text-violet-400">
               Quản lý gói VIP
@@ -117,7 +118,7 @@ const VIPPackageManagement = () => {
           </div>
         </div>
       </nav>
-      
+
       <div className="max-w-6xl mx-auto">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold text-gray-800">Quản lý gói VIP</h1>
@@ -170,12 +171,12 @@ const VIPPackageManagement = () => {
                     <tr key={pkg.package_id}>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">{pkg.name}</div>
-                    
+
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {pkg.package_type === 'all_skills' ? 'Tất cả kỹ năng' : 'Một kỹ năng'}
                       </td>
-                    
+
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {pkg.duration_months} {pkg.duration_months === 1 ? 'tháng' : 'tháng'}
                       </td>
@@ -183,9 +184,8 @@ const VIPPackageManagement = () => {
                         ${pkg.price.toFixed(2)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          pkg.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                        }`}>
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${pkg.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                          }`}>
                           {pkg.is_active ? 'Hoạt động' : 'Không hoạt động'}
                         </span>
                       </td>
@@ -203,11 +203,10 @@ const VIPPackageManagement = () => {
                           </button>
                           <button
                             onClick={() => handleToggleStatus(pkg)}
-                            className={`p-1 rounded-md ${
-                              pkg.is_active 
-                                ? 'text-red-600 hover:text-red-900 hover:bg-red-50' 
+                            className={`p-1 rounded-md ${pkg.is_active
+                                ? 'text-red-600 hover:text-red-900 hover:bg-red-50'
                                 : 'text-green-600 hover:text-green-900 hover:bg-green-50'
-                            }`}
+                              }`}
                             title={pkg.is_active ? 'Vô hiệu hóa gói' : 'Kích hoạt gói'}
                           >
                             {pkg.is_active ? 'Vô hiệu hóa' : 'Kích hoạt'}

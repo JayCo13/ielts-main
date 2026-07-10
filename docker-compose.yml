@@ -1,58 +1,140 @@
 version: '3.8'
 
 services:
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./nginx/ssl:/etc/nginx/ssl
+      - ./nginx/certbot/conf:/etc/letsencrypt
+      - ./nginx/certbot/www:/var/www/certbot
+      - ./nginx/robots.txt:/etc/nginx/robots.txt
+    depends_on:
+      - backend
+      - admin-ui
+      - user-ui
+    networks:
+      - ielts_network
+
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - ./nginx/certbot/conf:/etc/letsencrypt
+      - ./nginx/certbot/www:/var/www/certbot
+    command: certonly --webroot -w /var/www/certbot 
+             --email taicopgm@gmail.com 
+             -d thiieltstrenmay.com 
+             -d admin.thiieltstrenmay.com 
+             -d api.thiieltstrenmay.com 
+             --agree-tos
+             --non-interactive
+
   backend:
-    build: 
+    build:
       context: ./ielts-practice-backend
       dockerfile: Dockerfile
-    ports:
-      - "8000:8000"
+    expose:
+      - "8000"
+    env_file:
+      - ./ielts-practice-backend/.env
     environment:
-      - DATABASE_URL=mysql://root:root@db:3306/ielts_practice
+      - DATABASE_URL=mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@db:3306/${MYSQL_DATABASE}
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
     depends_on:
       - db
+      - redis
     volumes:
       - ./ielts-practice-backend:/app
       - ./ielts-practice-backend/static:/app/static
     networks:
       - ielts_network
+    restart: always
 
   admin-ui:
     build:
       context: ./ielts-practice-ui
       dockerfile: Dockerfile
-    ports:
-      - "3000:80"
+      args:
+        # Prod API URL baked into the Vite bundle. Override via .env if needed.
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-https://api.thiieltstrenmay.com}
+    expose:
+      - "80"
     depends_on:
       - backend
     networks:
       - ielts_network
+    restart: always
 
   user-ui:
     build:
       context: ./ielts-tajun
       dockerfile: Dockerfile
-    ports:
-      - "3001:80"
+      args:
+        # Prod API URL baked into the CRA bundle. Override via .env if needed.
+        REACT_APP_API_BASE_URL: ${REACT_APP_API_BASE_URL:-https://api.thiieltstrenmay.com}
+    expose:
+      - "80"
     depends_on:
       - backend
     networks:
       - ielts_network
+    restart: always
+
+  redis:
+    image: redis:7-alpine
+    # Cache-only mode: persistence disabled (--save "" --appendonly no).
+    # Redis is used as a cache by app/utils/redis_cache.py — every key is
+    # re-derivable from the DB on cache miss, so we don't need AOF/RDB.
+    # Disabling persistence eliminates BGSAVE/AOF-rewrite memory spikes
+    # which were causing the container to hit its memory limit and OOM,
+    # leading to a restart loop and the Cloudflare 522 cascade.
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD}
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --save ""
+      --appendonly no
+      --tcp-keepalive 60
+    # ports:  <-- REMOVED FOR SECURITY (Internal Access Only)
+    #   - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - ielts_network
+    deploy:
+      resources:
+        limits:
+          # Container limit is 50% larger than Redis maxmemory so there's
+          # headroom for fragmentation and short-lived process spikes.
+          memory: 768M
+        reservations:
+          memory: 256M
+    restart: always
 
   db:
     image: mysql:8.0
-    command: --default-authentication-plugin=mysql_native_password
+    command: --default-authentication-plugin=mysql_native_password --max-connections=1000 --wait-timeout=60 --interactive-timeout=180
     environment:
-      - MYSQL_ROOT_PASSWORD=root
-      - MYSQL_DATABASE=ielts_practice
-      - MYSQL_USER=ielts
-      - MYSQL_PASSWORD=ielts123
-    ports:
-      - "3307:3306"  # Changed port mapping to avoid conflict
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
     volumes:
       - mysql_data:/var/lib/mysql
+      - ./mysql/custom.cnf:/etc/mysql/conf.d/custom.cnf
     networks:
       - ielts_network
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 2G
+    restart: always
 
 networks:
   ielts_network:
@@ -60,3 +142,4 @@ networks:
 
 volumes:
   mysql_data:
+  redis_data:

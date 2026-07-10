@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import { API_BASE } from '../config/api';
 
 // In EditProfile.js, modify the component definition:
 const EditProfile = ({ onProfileUpdate }) => {
@@ -17,7 +18,7 @@ const EditProfile = ({ onProfileUpdate }) => {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const response = await fetch('http://localhost:8000/student/profile', {
+        const response = await fetch(`${API_BASE}/student/profile`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`
           }
@@ -46,7 +47,7 @@ const EditProfile = ({ onProfileUpdate }) => {
       const timer = setTimeout(() => {
         setSaveMessage({ type: '', text: '' });
       }, 3000);
-      
+
       return () => clearTimeout(timer);
     }
   }, [saveMessage]);
@@ -55,7 +56,7 @@ const EditProfile = ({ onProfileUpdate }) => {
     const file = e.target.files[0];
     if (file) {
       setFormData({ ...formData, image: file });
-      
+
       // Create preview URL for immediate display
       const imageUrl = URL.createObjectURL(file);
       setPreviewImage(imageUrl);
@@ -75,7 +76,7 @@ const EditProfile = ({ onProfileUpdate }) => {
     }
 
     try {
-      const response = await fetch('http://localhost:8000/student/profile', {
+      const response = await fetch(`${API_BASE}/student/profile`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -84,60 +85,60 @@ const EditProfile = ({ onProfileUpdate }) => {
       });
 
       if (response.ok) {
-        setSaveMessage({ 
-          type: 'success', 
-          text: 'Cập nhật hồ sơ thành công!' 
+        setSaveMessage({
+          type: 'success',
+          text: 'Cập nhật hồ sơ thành công!'
         });
-        
+
         // Get updated data from response
         const updatedData = await response.json();
-        
+
         // If we uploaded a new image, use the preview image until page reload
         // This ensures we see the new image immediately
         if (formData.image && previewImage) {
           updatedData.image_url = previewImage;
-        } 
+        }
         // Otherwise, force a cache refresh on the existing image
         else if (updatedData.image_url) {
           const timestamp = new Date().getTime();
           updatedData.image_url = `${updatedData.image_url.split('?')[0]}?t=${timestamp}`;
         }
-        
+
         // Update the profile data with the modified image URL
         setProfileData(updatedData);
-        
+
         // Reset file input
         if (fileInputRef.current) {
           fileInputRef.current.value = '';
         }
-        
+
         // Reset image state but keep the updated data
         setFormData({
           username: updatedData.username,
           email: updatedData.email,
           image: null
         });
-        
+
         // Only clear preview if we're not using it as the current display image
         if (!formData.image) {
           setPreviewImage(null);
         }
-        
+
         // Call the onProfileUpdate callback to refresh the parent component
         if (onProfileUpdate) {
           onProfileUpdate();
         }
       } else {
-        setSaveMessage({ 
-          type: 'error', 
-          text: 'Không thể cập nhật hồ sơ. Vui lòng thử lại.' 
+        setSaveMessage({
+          type: 'error',
+          text: 'Không thể cập nhật hồ sơ. Vui lòng thử lại.'
         });
       }
     } catch (error) {
       console.error('Error updating profile:', error);
-      setSaveMessage({ 
-        type: 'error', 
-        text: 'Đã xảy ra lỗi. Vui lòng thử lại sau.' 
+      setSaveMessage({
+        type: 'error',
+        text: 'Đã xảy ra lỗi. Vui lòng thử lại sau.'
       });
     } finally {
       setIsSaving(false);
@@ -145,22 +146,21 @@ const EditProfile = ({ onProfileUpdate }) => {
   };
 
   // Determine which image to display with a timestamp to prevent caching
-  const displayImage = previewImage || 
-    (profileData?.image_url ? 
-      (profileData.image_url.includes('?') ? 
-        profileData.image_url : 
-        `${profileData.image_url}?t=${new Date().getTime()}`) : 
+  const displayImage = previewImage ||
+    (profileData?.image_url ?
+      (profileData.image_url.includes('?') ?
+        profileData.image_url :
+        `${profileData.image_url}?t=${new Date().getTime()}`) :
       "/default-avatar.jpg");
 
   return (
     <div className="flex-1 p-6">
       <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-sm p-8">
         <h2 className="text-2xl text-center font-bold mb-6">Chỉnh Sửa Hồ Sơ</h2>
-        
+
         {saveMessage.text && (
-          <div className={`mb-6 p-4 rounded-lg ${
-            saveMessage.type === 'success' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'
-          }`}>
+          <div className={`mb-6 p-4 rounded-lg ${saveMessage.type === 'success' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'
+            }`}>
             {saveMessage.text}
           </div>
         )}
@@ -178,8 +178,8 @@ const EditProfile = ({ onProfileUpdate }) => {
               <input
                 ref={fileInputRef}
                 type="file"
+                className="text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-[#0096b1]/50 file:text-gray-900 hover:file:bg-[#0096b1]/100"
                 onChange={handleImageChange}
-                className="text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-lime-50 file:text-lime-700 hover:file:bg-lime-100"
                 accept="image/*"
               />
             </div>
@@ -190,10 +190,11 @@ const EditProfile = ({ onProfileUpdate }) => {
             <input
               type="text"
               value={formData.username}
-              onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-lime-500 focus:border-lime-500"
-              disabled={isSaving}
+              className="w-full px-3 py-2 border rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed"
+              disabled
+              readOnly
             />
+            <p className="text-xs text-gray-400">Tên người dùng không thể thay đổi</p>
           </div>
 
           <div className="space-y-2">
@@ -211,10 +212,9 @@ const EditProfile = ({ onProfileUpdate }) => {
             type="submit"
             disabled={isSaving}
             className={`w-full py-2 px-4 rounded-lg text-white font-medium transition-colors
-              ${isSaving 
-                ? 'bg-gray-400 cursor-not-allowed' 
-                : 'bg-lime-500 hover:bg-lime-600'}`}
-          >
+              ${isSaving
+                ? 'bg-gray-400 cursor-not-allowed'
+                : 'bg-[#0096b1]/80 hover:bg-[#0096b1]/100'}`} >
             {isSaving ? 'Đang Lưu...' : 'Lưu Thay Đổi'}
           </button>
         </form>

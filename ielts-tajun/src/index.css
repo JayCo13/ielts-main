@@ -2,45 +2,121 @@
 @tailwind components;
 @tailwind utilities;
 
-.gutter {
-    background-color: #edf2f7;
-    background-repeat: no-repeat;
-    background-position: 50%;
-    position: relative;
-    margin: 16px 0;
-    height: calc(100% - 32px) !important;
+/* Ensure drag and drop functionality works properly */
+.ielts-heading-match .ielts-heading-option {
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+  -webkit-touch-callout: none !important;
+  touch-action: manipulation !important;
+  position: relative !important;
+  z-index: 10 !important;
 }
 
-.gutter:hover {
-    background-color: #cbd5e0;
+.ielts-heading-match .ielts-heading-option[draggable="true"] {
+  cursor: grab !important;
+  pointer-events: auto !important;
+}
+
+.ielts-heading-match .ielts-heading-option[draggable="true"]:active {
+  cursor: grabbing !important;
+}
+
+.ielts-heading-match .ielts-heading-option.dragging {
+  opacity: 0.6 !important;
+  cursor: grabbing !important;
+  z-index: 1000 !important;
+}
+
+.heading-drop-area {
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+  position: relative !important;
+  z-index: 5 !important;
+}
+
+/* Ensure dropped headings are also draggable */
+.dropped-heading {
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+  cursor: move !important;
+  pointer-events: auto !important;
+  z-index: 10 !important;
+}
+
+.gutter {
+  background-repeat: no-repeat;
+  background-position: 50%;
+  position: relative;
+  margin: 0;
+  height: 100% !important;
 }
 
 .gutter.gutter-horizontal {
-    cursor: col-resize;
-    position: relative;
-    border-radius: 4px;
+  cursor: col-resize;
+  width: 1px !important;
+  margin: 0;
+  position: relative;
+  background-color: #6b7280 !important;
+}
+
+.gutter.gutter-horizontal:hover {
+  box-shadow: 0 0 20px cadetblue;
+  width: 10px !important;
+  background-color: cadetblue !important;
 }
 
 .gutter.gutter-horizontal::after {
-    content: "";
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 24px;
-    height: 24px;
-    background-color: white;
-    border: 1px solid #e2e8f0;
-    border-radius: 6px;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M17 8l4 4-4 4M7 8l-4 4 4 4M3 12h18'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: center;
+  content: "↔";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 30px;
+  height: 30px;
+  background-color: #ffffff;
+  z-index: 10;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  color: #6b7280;
+  border: 2px solid #6b7280;
+  pointer-events: none;
 }
 
 .gutter:hover::after {
-    background-color: #f8fafc;
-    border-color: #cbd5e0;
+  color: cadetblue;
+  border: 2px solid cadetblue;
+}
+
+.split-container {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.split-container>div {
+  height: 100%;
+}
+
+/* Table input cells - ensure overflow is visible for icons */
+table td,
+table th {
+  overflow: visible !important;
+  vertical-align: top !important;
+}
+
+/* Ensure table review items display properly */
+table .inline-flex.flex-col {
+  overflow: visible !important;
 }
 
 /* ===== Modern UI Animation Effects ===== */
@@ -56,33 +132,70 @@
 }
 
 @keyframes shimmer {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(100%);
+  }
 }
 
 /* Floating Animations */
 @keyframes float1 {
-  0% { transform: translateY(0px) rotate(0deg); }
-  50% { transform: translateY(-15px) rotate(2deg); }
-  100% { transform: translateY(0px) rotate(0deg); }
+  0% {
+    transform: translateY(0px) rotate(0deg);
+  }
+
+  50% {
+    transform: translateY(-15px) rotate(2deg);
+  }
+
+  100% {
+    transform: translateY(0px) rotate(0deg);
+  }
 }
 
 @keyframes float2 {
-  0% { transform: translateY(0px) rotate(0deg); }
-  50% { transform: translateY(-12px) rotate(-2deg); }
-  100% { transform: translateY(0px) rotate(0deg); }
+  0% {
+    transform: translateY(0px) rotate(0deg);
+  }
+
+  50% {
+    transform: translateY(-12px) rotate(-2deg);
+  }
+
+  100% {
+    transform: translateY(0px) rotate(0deg);
+  }
 }
 
 @keyframes float3 {
-  0% { transform: translateY(0px) rotate(0deg); }
-  50% { transform: translateY(-18px) rotate(2.5deg); }
-  100% { transform: translateY(0px) rotate(0deg); }
+  0% {
+    transform: translateY(0px) rotate(0deg);
+  }
+
+  50% {
+    transform: translateY(-18px) rotate(2.5deg);
+  }
+
+  100% {
+    transform: translateY(0px) rotate(0deg);
+  }
 }
 
 @keyframes float4 {
-  0% { transform: translateY(0px) rotate(0deg); }
-  50% { transform: translateY(-10px) rotate(-1.5deg); }
-  100% { transform: translateY(0px) rotate(0deg); }
+  0% {
+    transform: translateY(0px) rotate(0deg);
+  }
+
+  50% {
+    transform: translateY(-10px) rotate(-1.5deg);
+  }
+
+  100% {
+    transform: translateY(0px) rotate(0deg);
+  }
 }
 
 .float-1 {
@@ -106,9 +219,17 @@
 
 /* Pulse Effect */
 @keyframes pulse {
-  0% { opacity: 0.4; }
-  50% { opacity: 0.8; }
-  100% { opacity: 0.4; }
+  0% {
+    opacity: 0.4;
+  }
+
+  50% {
+    opacity: 0.8;
+  }
+
+  100% {
+    opacity: 0.4;
+  }
 }
 
 .pulse {
@@ -117,9 +238,20 @@
 
 /* Ripple Effect */
 @keyframes ripple {
-  0% { transform: scale(0.8); opacity: 0.5; }
-  50% { transform: scale(1.2); opacity: 0.3; }
-  100% { transform: scale(0.8); opacity: 0.5; }
+  0% {
+    transform: scale(0.8);
+    opacity: 0.5;
+  }
+
+  50% {
+    transform: scale(1.2);
+    opacity: 0.3;
+  }
+
+  100% {
+    transform: scale(0.8);
+    opacity: 0.5;
+  }
 }
 
 .ripple {
@@ -128,8 +260,13 @@
 
 /* Spinning Animation */
 @keyframes spin-slow {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .spin-slow {
@@ -138,9 +275,17 @@
 
 /* Gradient Animations */
 @keyframes gradient-shift {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
 }
 
 .animated-gradient {
@@ -160,13 +305,17 @@
 
 /* Blobs and Morphing Shapes */
 @keyframes move-path {
-  0%, 100% { 
-    d: path("M24.4,-30.7C31.2,-25.3,36.1,-17.1,39.2,-7.7C42.3,1.8,43.5,12.5,39.2,20.6C34.9,28.6,25.1,34,14.5,37.9C3.9,41.8,-7.5,44.1,-17.2,41C-26.9,37.9,-34.9,29.5,-38.6,19.7C-42.3,9.9,-41.8,-1.2,-38.8,-11.2C-35.8,-21.2,-30.4,-30,-22.8,-35.2C-15.1,-40.3,-5.3,-41.9,2.1,-44.6C9.6,-47.3,17.6,-36.1,24.4,-30.7Z"); 
+
+  0%,
+  100% {
+    d: path("M24.4,-30.7C31.2,-25.3,36.1,-17.1,39.2,-7.7C42.3,1.8,43.5,12.5,39.2,20.6C34.9,28.6,25.1,34,14.5,37.9C3.9,41.8,-7.5,44.1,-17.2,41C-26.9,37.9,-34.9,29.5,-38.6,19.7C-42.3,9.9,-41.8,-1.2,-38.8,-11.2C-35.8,-21.2,-30.4,-30,-22.8,-35.2C-15.1,-40.3,-5.3,-41.9,2.1,-44.6C9.6,-47.3,17.6,-36.1,24.4,-30.7Z");
   }
-  33% { 
+
+  33% {
     d: path("M24.3,-31.5C31.3,-27.1,36.8,-19.3,39.7,-10.3C42.6,-1.3,42.9,8.9,38.7,16.6C34.5,24.4,25.7,29.8,16.2,32.9C6.8,36.1,-3.3,37,-13.7,35.5C-24.1,34,-35,30.1,-38.7,22.1C-42.4,14.1,-39,2.1,-37.9,-11.3C-36.8,-24.7,-37.9,-39.6,-31.4,-44C-24.9,-48.4,-10.6,-42.5,-0.5,-41.8C9.5,-41.2,17.3,-36,24.3,-31.5Z");
   }
-  66% { 
+
+  66% {
     d: path("M15.6,-22.8C20.5,-14.7,25.1,-11.5,32,-3.7C38.9,4.1,48.3,16.4,46.3,25C44.4,33.6,31.2,38.4,18.7,40.2C6.2,41.9,-5.5,40.5,-15.8,36.5C-26.1,32.5,-35,25.9,-40.5,16.6C-46,7.2,-48.1,-4.8,-44.1,-13.8C-40,-22.8,-30,-28.8,-20.5,-35.3C-11.1,-41.8,-2.2,-48.7,2.3,-51.7C6.8,-54.7,10.7,-30.9,15.6,-22.8Z");
   }
 }
@@ -194,7 +343,7 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background: linear-gradient(120deg, rgba(255,255,255,0) 30%, rgba(255,255,255,0.8) 50%, rgba(255,255,255,0) 70%);
+  background: linear-gradient(120deg, rgba(255, 255, 255, 0) 30%, rgba(255, 255, 255, 0.8) 50%, rgba(255, 255, 255, 0) 70%);
   background-size: 200% 100%;
   transform: translateX(-100%);
   transition: transform 0.7s ease;
@@ -238,10 +387,91 @@
 
 /* Type cursor for code-like displays */
 @keyframes type-cursor {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0;
+  }
 }
 
 .type-cursor {
   animation: type-cursor 1s step-end infinite;
+}
+
+/* IELTS Highlight and Note Styles */
+/* Colours match the IDP / British Council computer-delivered highlighter:
+   - 1st highlight  -> "mắm tôm" (muted plum)        : --ielts-hl-1
+   - 2nd highlight over the 1st -> "hồng cánh sen" (lotus pink) : --ielts-hl-2
+   Tweak the two values below to fine-tune the shades. */
+:root {
+  --ielts-hl-1: #7a4d6b;
+  /* mắm tôm / muted plum */
+  --ielts-hl-2: #ec4899;
+  /* hồng cánh sen / lotus pink */
+}
+
+/* First-level highlight (also covers any legacy theme classes so old
+   highlights restored from localStorage keep a consistent colour). */
+.ielts-highlight,
+.ielts-highlight.hl-level-1,
+.ielts-highlight.bg-yellow-200,
+.ielts-highlight.bg-blue-800,
+.ielts-highlight.bg-blue-900 {
+  background-color: var(--ielts-hl-1) !important;
+  color: #ffffff !important;
+  display: inline !important;
+  cursor: pointer !important;
+  position: relative !important;
+  z-index: 10 !important;
+  pointer-events: auto !important;
+}
+
+/* Second-level highlight: highlighting again on top of an existing
+   highlight (higher specificity so it wins over the base rule). */
+.ielts-highlight.hl-level-2 {
+  background-color: var(--ielts-hl-2) !important;
+  color: #ffffff !important;
+}
+
+.highlighted-text.with-note {
+  background-color: #d1fae5 !important;
+  /* emerald-100 - green to differentiate from the highlight colours */
+  border-bottom: 2px solid #10b981 !important;
+  position: relative !important;
+  cursor: pointer !important;
+  /* inline + no padding/box border so adding a note does not push the
+     surrounding text around ("nhảy chữ"). */
+  padding: 0 !important;
+  border-radius: 2px !important;
+  display: inline !important;
+  color: #000000 !important;
+  z-index: 10 !important;
+}
+
+.highlight-hover {
+  background-color: rgba(239, 68, 68, 0.2) !important;
+}
+
+/* Tooltip removed to prevent duplication with toolHandlers.js implementation */
+.highlight-hover {
+  background-color: rgba(239, 68, 68, 0.2) !important;
+}
+
+.note-indicator {
+  position: absolute !important;
+  top: -8px !important;
+  right: -8px !important;
+  background-color: #6ee7b7 !important;
+  border-radius: 50% !important;
+  width: 16px !important;
+  height: 16px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 12px !important;
+  z-index: 11 !important;
 }

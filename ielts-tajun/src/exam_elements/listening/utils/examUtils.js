@@ -11,11 +11,13 @@ export const saveAnswer = (examId, questionId, value) => {
 };
 
 // Utility function to save highlights to localStorage
-export const saveHighlight = (text, part, examId) => {
+export const saveHighlight = (text, part, examId, rangeInfo, signature) => {
   const highlightData = {
     text,
     part,
     examId,
+    rangeInfo,
+    signature,
     timestamp: new Date().getTime()
   };
   const existingHighlights = JSON.parse(localStorage.getItem('ielts-highlights') || '[]');

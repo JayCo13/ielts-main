@@ -17,3 +17,14 @@ class QuestionTypeEnum(str, Enum):
     TRUE_FALSE = "true_false"
     SHORT_ANSWER = "short_answer"
     ESSAY = "essay"
+
+class NotificationTypeEnum(str, Enum):
+    UPDATE = "update"
+    ANNOUNCEMENT = "announcement"
+    MAINTENANCE = "maintenance"
+
+class KeyTypeEnum(str, Enum):
+    READING = "reading"
+    LISTENING = "listening"
+    SPEAKING = "speaking"
+    WRITING = "writing"

@@ -1,21 +1,23 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Editor } from '@tinymce/tinymce-react';
-import { Bell, Menu, Wifi, Volume2 } from 'lucide-react';
+import CustomRichTextEditor from '../../components/CustomRichTextEditor';
+import ForceLogoutDialog from '../../components/ForceLogoutDialog';
+import { Bell, Menu, Wifi, Volume2, FileText } from 'lucide-react';
 import { ChevronLeft, ChevronRight, Check } from 'lucide-react';
 import Split from 'react-split';
+import { API_BASE } from '../../config/api';
 
 
 const processInstructions = (instructions) => {
   const parser = new DOMParser();
   const doc = parser.parseFromString(instructions, 'text/html');
-  
+
   doc.querySelectorAll('img').forEach(img => {
     if (img.src.startsWith('/')) {
-      img.src = `http://localhost:8000${img.src}`;
+      img.src = `${API_BASE}${img.src}`;
     }
   });
-  
+
   return doc.body.innerHTML;
 };
 
@@ -25,7 +27,7 @@ const WritingLayout = () => {
   const [loading, setLoading] = useState(true);
   const [notification, setNotification] = useState({ show: false, message: '', type: '' });
   const location = useLocation();
-  const { taskId, testId } = location.state || {};
+  const { taskId, testId, isForecast } = location.state || {};
   const [studentAnswer, setStudentAnswer] = useState('');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [textSize, setTextSize] = useState('regular');
@@ -36,6 +38,10 @@ const WritingLayout = () => {
   const [parts, setParts] = useState([]);
   const [answers, setAnswers] = useState({});
   const [submissionData, setSubmissionData] = useState(null);
+  const [showForceLogoutDialog, setShowForceLogoutDialog] = useState(false);
+  const [logoutCountdown, setLogoutCountdown] = useState(40);
+  const [logoutMessage, setLogoutMessage] = useState('');
+  const [sampleOpen, setSampleOpen] = useState(false);
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
@@ -62,10 +68,10 @@ const WritingLayout = () => {
   useEffect(() => {
     const fetchTestParts = async () => {
       const token = localStorage.getItem('token');
-      if (!token || !testId) return;
+      if (!token || !testId || isForecast) return;
 
       try {
-        const response = await fetch(`http://localhost:8000/student/writing/tasks`, {
+        const response = await fetch(`${API_BASE}/student/writing/tasks`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -86,7 +92,7 @@ const WritingLayout = () => {
     };
 
     fetchTestParts();
-  }, [testId, taskId]);
+  }, [testId, taskId, isForecast]);
 
   // Remove answers from dependency array
   useEffect(() => {
@@ -98,7 +104,7 @@ const WritingLayout = () => {
       }
 
       try {
-        const response = await fetch(`http://localhost:8000/student/writing/tasks/${taskId}`, {
+        const response = await fetch(`${API_BASE}/student/writing/tasks/${taskId}`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -109,7 +115,7 @@ const WritingLayout = () => {
           setTask(data);
           setTimeLeft(data.duration * 60);
           setCurrentPartIndex(data.part_number - 1);
-          
+
           // Use saved answer if exists, otherwise use previous answer from server
           const savedAnswer = answers[taskId];
           if (savedAnswer) {
@@ -171,15 +177,50 @@ const WritingLayout = () => {
   const handleSubmit = async () => {
     const token = localStorage.getItem('token');
     try {
-      // Save current answer before submitting
       const currentAnswer = studentAnswer;
       setAllAnswers(prev => ({
         ...prev,
         [task.part_number === 1 ? 'part1_answer' : 'part2_answer']: currentAnswer
       }));
 
+      if (isForecast) {
+        const response = await fetch(
+          `${API_BASE}/student/writing/part/${taskId}/essay`,
+          {
+            method: 'PUT',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              answer_text: currentAnswer
+            })
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          setSubmissionData(data);
+          setNotification({
+            show: true,
+            message: 'Answer submitted successfully! Returning to forecasts...',
+            type: 'success'
+          });
+          setTimeout(() => {
+            navigate('/writing_forecast');
+          }, 1500);
+        } else {
+          setNotification({
+            show: true,
+            message: 'Failed to submit your answer. Please try again.',
+            type: 'error'
+          });
+        }
+        return;
+      }
+
       const response = await fetch(
-        `http://localhost:8000/student/writing/test/${testId}/submit`, 
+        `${API_BASE}/student/writing/test/${testId}/submit`,
         {
           method: 'POST',
           headers: {
@@ -196,19 +237,40 @@ const WritingLayout = () => {
       if (response.ok) {
         const data = await response.json();
         setSubmissionData(data);
-        
+
         setNotification({
           show: true,
           message: 'Test submitted successfully! Returning to test list...',
           type: 'success'
         });
-        
+
         setTimeout(() => {
           navigate('/writing_list');
         }, 2000);
+      } else if (response.status === 409) {
+        const errorData = await response.json();
+        setLogoutMessage(errorData.detail || 'Tài khoản của bạn đã được đăng nhập từ thiết bị khác.');
+        setShowForceLogoutDialog(true);
+        let countdown = 40;
+        setLogoutCountdown(countdown);
+        const timer = setInterval(() => {
+          countdown -= 1;
+          setLogoutCountdown(countdown);
+          if (countdown <= 0) {
+            clearInterval(timer);
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            navigate('/login');
+          }
+        }, 1000);
+      } else {
+        setNotification({
+          show: true,
+          message: 'Failed to submit your test. Please try again.',
+          type: 'error'
+        });
       }
     } catch (error) {
-      console.error('Error submitting test:', error);
       setNotification({
         show: true,
         message: 'Failed to submit your test. Please try again.',
@@ -220,77 +282,76 @@ const WritingLayout = () => {
   // Update the submit button text in the return section
   <button
     onClick={handleSubmit}
-    className={`flex items-center gap-2 px-7 py-5 rounded-lg transition-colors ${
-      colorTheme === 'black-on-white' ? 'bg-black text-white hover:bg-gray-800' : 'bg-white text-black hover:bg-gray-200'
-    }`}
+    className={`flex items-center gap-2 px-7 py-5 rounded-lg transition-colors ${colorTheme === 'black-on-white' ? 'bg-black text-white hover:bg-gray-800' : 'bg-white text-black hover:bg-gray-200'
+      }`}
   >
     <Check className="w-5 h-5" />
     <span>Submit Test</span>
   </button>
 
-const handlePreviousPart = async () => {
-  if (currentPartIndex > 0) {
-    // Save current answer before switching
-    const previousPart = parts[currentPartIndex - 1];
-    setAllAnswers(prev => ({
-      ...prev,
-      [task.part_number === 1 ? 'part1_answer' : 'part2_answer']: studentAnswer
-    }));
+  const handlePreviousPart = async () => {
+    if (currentPartIndex > 0) {
+      // Save current answer before switching
+      const previousPart = parts[currentPartIndex - 1];
+      setAllAnswers(prev => ({
+        ...prev,
+        [task.part_number === 1 ? 'part1_answer' : 'part2_answer']: studentAnswer
+      }));
 
-    setLoading(true);
-    try {
-      const response = await fetch(`http://localhost:8000/student/writing/tasks/${previousPart.task_id}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+      setLoading(true);
+      try {
+        const response = await fetch(`${API_BASE}/student/writing/tasks/${previousPart.task_id}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setTask(data);
+          // Remove the setTimeLeft line to maintain current timer
+          setStudentAnswer(data.part_number === 1 ? allAnswers.part1_answer : allAnswers.part2_answer || '');
+          setCurrentPartIndex(currentPartIndex - 1);
         }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setTask(data);
-        // Remove the setTimeLeft line to maintain current timer
-        setStudentAnswer(data.part_number === 1 ? allAnswers.part1_answer : allAnswers.part2_answer || '');
-        setCurrentPartIndex(currentPartIndex - 1);
+      } catch (error) {
+        console.error('Error fetching previous task:', error);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error('Error fetching previous task:', error);
-    } finally {
-      setLoading(false);
     }
-  }
-};
+  };
 
-const handleNextPart = async () => {
-  if (currentPartIndex < parts.length - 1) {
-    // Save current answer before switching
-    const nextPart = parts[currentPartIndex + 1];
-    setAllAnswers(prev => ({
-      ...prev,
-      [task.part_number === 1 ? 'part1_answer' : 'part2_answer']: studentAnswer
-    }));
+  const handleNextPart = async () => {
+    if (currentPartIndex < parts.length - 1) {
+      // Save current answer before switching
+      const nextPart = parts[currentPartIndex + 1];
+      setAllAnswers(prev => ({
+        ...prev,
+        [task.part_number === 1 ? 'part1_answer' : 'part2_answer']: studentAnswer
+      }));
 
-    setLoading(true);
-    try {
-      const response = await fetch(`http://localhost:8000/student/writing/tasks/${nextPart.task_id}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+      setLoading(true);
+      try {
+        const response = await fetch(`${API_BASE}/student/writing/tasks/${nextPart.task_id}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setTask(data);
+          // Remove the setTimeLeft line to maintain current timer
+          setStudentAnswer(data.part_number === 1 ? allAnswers.part1_answer : allAnswers.part2_answer || '');
+          setCurrentPartIndex(currentPartIndex + 1);
         }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setTask(data);
-        // Remove the setTimeLeft line to maintain current timer
-        setStudentAnswer(data.part_number === 1 ? allAnswers.part1_answer : allAnswers.part2_answer || '');
-        setCurrentPartIndex(currentPartIndex + 1);
+      } catch (error) {
+        console.error('Error fetching next task:', error);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error('Error fetching next task:', error);
-    } finally {
-      setLoading(false);
     }
-  }
-};
+  };
 
   const formatTime = (seconds) => {
     const minutes = Math.floor(seconds / 60);
@@ -327,11 +388,21 @@ const handleNextPart = async () => {
           </div>
         </div>
 
-        <div className="flex items-center space-x-4 font-medium">
+        <div className="flex items-center space-x-4 font-medium whitespace-nowrap">
+          <button
+            onClick={() => setSampleOpen(true)}
+            disabled={!task?.sample_essay}
+            className={`p-1 rounded inline-flex items-center gap-2 ${!task?.sample_essay ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-200'}`}
+            title={task?.sample_essay ? 'View Sample Writing' : 'No sample available'}
+          >
+            <span className="text-sm inline-flex items-center gap-2">Xem gợi ý
+              <FileText className={`w-5 h-5 ${colorTheme !== 'black-on-white' ? 'text-white' : 'text-gray-600'}`} />
+            </span>
+          </button>
           <Wifi className={`w-5 h-5 ${colorTheme !== 'black-on-white' ? 'text-white' : 'text-gray-600'}`} />
           <Bell className={`w-5 h-5 ${colorTheme !== 'black-on-white' ? 'text-white' : 'text-gray-600'}`} />
           <div className="relative" ref={menuRef}>
-          <Menu 
+            <Menu
               className={`w-5 h-5 cursor-pointer ${colorTheme !== 'black-on-white' ? 'text-white' : 'text-gray-600'}`}
               onClick={() => setIsMenuOpen(!isMenuOpen)}
             />
@@ -341,14 +412,14 @@ const handleNextPart = async () => {
                   <div className="w-full max-w-3xl bg-opacity-95 p-12 rounded-2xl">
                     <div className="flex justify-between items-center mb-12">
                       <h2 className="text-3xl font-bold">Settings</h2>
-                      <button 
+                      <button
                         onClick={() => setIsMenuOpen(false)}
                         className="text-2xl hover:opacity-70 transition-opacity"
                       >
                         ✕
                       </button>
                     </div>
-                    
+
                     <div className="grid grid-cols-2 gap-16">
                       <div className="space-y-8">
                         <div>
@@ -466,103 +537,54 @@ const handleNextPart = async () => {
           </div>
 
           <div className={`p-4 flex flex-col ${colorThemeClasses[colorTheme]}`}>
-          <Editor
-              apiKey="mbitaig1o57ii8l8aa8wx4b4le9cc1e0aw5t2c1lo4axii6u"
+            <CustomRichTextEditor
               value={studentAnswer}
-              onEditorChange={handleEditorChange}
-              key={`${textSize}-${colorTheme}`} // Add this line to force re-render
-              init={{
-                height: 'calc(100vh-300px)',
-                width: '100%',
-                menubar: false,
-                plugins: ['wordcount'],
-                toolbar: false,
-                content_style: `
-                  * { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important; }
-                  body { 
-                    padding: 20px;
-                    font-size: ${textSize === 'regular' ? '16px' : textSize === 'large' ? '20px' : '24px'} !important;
-                    background-color: ${colorTheme === 'black-on-white' ? 'white' : 'black'} !important;
-                    color: ${
-                      colorTheme === 'black-on-white' ? 'black' : 
-                      colorTheme === 'white-on-black' ? 'white' : 
-                      '#fde047'
-                    } !important;
-                  }
-                  p { font-size: inherit !important; }
-                `,
-                statusbar: false,
-                skin: colorTheme === 'black-on-white' ? 'oxide' : 'oxide-dark',
-                content_css: colorTheme === 'black-on-white' ? 'default' : 'dark',
-                setup: (editor) => {
-                  editor.on('init', () => {
-                    editor.getBody().style.fontSize = textSize === 'regular' ? '16px' : textSize === 'large' ? '20px' : '24px';
-                    editor.getBody().style.backgroundColor = colorTheme === 'black-on-white' ? 'white' : 'black';
-                    editor.getBody().style.color = colorTheme === 'black-on-white' ? 'black' : 
-                      colorTheme === 'white-on-black' ? 'white' : '#fde047';
-                  });
-                }
-              }}
+              onChange={handleEditorChange}
+              textSize={textSize}
+              colorTheme={colorTheme}
+              key={`${textSize}-${colorTheme}`}
               className={colorThemeClasses[colorTheme]}
             />
-            <div className={`flex justify-between items-center mt-4 ${colorThemeClasses[colorTheme]}`}>
-              <div className={`text-md ${colorTheme !== 'black-on-white' ? 'text-white' : 'text-gray-600'}`}>
-                Words: {studentAnswer.split(/\s+/).filter(word => word.length > 0).length}
-              </div>
-              <div className="flex gap-2">
-                <button 
-                  className={`p-3 border rounded-lg shadow-sm hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed ${
-                    colorTheme === 'black-on-white' ? 'bg-black text-white' : 'bg-white text-black'
-                  }`}
-                  onClick={handlePreviousPart}
-                  disabled={currentPartIndex === 0}
-                >
-                  <ChevronLeft className="w-7 h-7" />
-                </button>
-                <button 
-                  className={`p-3 border rounded-lg shadow-sm hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed ${
-                    colorTheme === 'black-on-white' ? 'bg-black text-white' : 'bg-white text-black'
-                  }`}
-                  onClick={handleNextPart}
-                  disabled={currentPartIndex === parts.length - 1}
-                >
-                  <ChevronRight className="w-7 h-7" />
-                </button>
-              </div>
+            <div className={`flex justify-end items-center mt-4 ${colorThemeClasses[colorTheme]}`}>
+              {!isForecast && (
+                <div className="flex gap-2">
+                  <button
+                    className={`p-3 border rounded-lg shadow-sm hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed ${colorTheme === 'black-on-white' ? 'bg-black text-white' : 'bg-white text-black'
+                      }`}
+                    onClick={handlePreviousPart}
+                    disabled={currentPartIndex === 0}
+                  >
+                    <ChevronLeft className="w-7 h-7" />
+                  </button>
+                  <button
+                    className={`p-3 border rounded-lg shadow-sm hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed ${colorTheme === 'black-on-white' ? 'bg-black text-white' : 'bg-white text-black'
+                      }`}
+                    onClick={handleNextPart}
+                    disabled={currentPartIndex === parts.length - 1}
+                  >
+                    <ChevronRight className="w-7 h-7" />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </Split>
 
         <div className={`border-t border-lime-500 py-2 px-6 ${colorThemeClasses[colorTheme]}`}>
-          <div className="flex justify-between items-center">
+          <div className="flex justify-between items-center text-lg font-bold">
             <div>
               Part {task.part_number}
             </div>
             <div className="flex gap-2">
-    {isSubmitEnabled(timeLeft) && (
-      currentPartIndex < parts.length - 1 ? (
-        <button
-          onClick={handleSubmit}
-          className={`flex items-center gap-2 px-7 py-5 rounded-lg transition-colors ${
-            colorTheme === 'black-on-white' ? 'bg-black text-white hover:bg-gray-800' : 'bg-white text-black hover:bg-gray-200'
-          }`}
-        >
-          <Check className="w-5 h-5" />
-          <span>Submit</span>
-        </button>
-      ) : (
-        <button
-          onClick={handleSubmit}
-          className={`flex items-center gap-2 px-7 py-5 rounded-lg transition-colors ${
-            colorTheme === 'black-on-white' ? 'bg-black text-white hover:bg-gray-800' : 'bg-white text-black hover:bg-gray-200'
-          }`}
-        >
-          <Check className="w-5 h-5" />
-          <span>Complete Test</span>
-        </button>
-      )
-    )}
-  </div>
+              <button
+                onClick={handleSubmit}
+                className={`flex items-center gap-2 px-7 py-5 rounded-lg transition-colors ${colorTheme === 'black-on-white' ? 'bg-black text-white hover:bg-gray-800' : 'bg-white text-black hover:bg-gray-200'
+                  }`}
+              >
+                <Check className="w-5 h-5" />
+                <span>{isForecast ? 'Submit Answer' : 'Submit Test'}</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -571,9 +593,8 @@ const handleNextPart = async () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className={`rounded-xl max-w-md w-full p-6 ${colorThemeClasses[colorTheme]}`}>
             <div className="text-center">
-              <div className={`text-2xl mb-4 ${
-                notification.type === 'success' ? 'text-lime-600' : 'text-red-600'
-              }`}>
+              <div className={`text-2xl mb-4 ${notification.type === 'success' ? 'text-lime-600' : 'text-red-600'
+                }`}>
                 {notification.type === 'success' ? '✓' : '✕'}
               </div>
               <p className={`text-lg mb-6 ${colorThemeClasses[colorTheme]}`}>{notification.message}</p>
@@ -581,21 +602,40 @@ const handleNextPart = async () => {
                 onClick={() => {
                   setNotification({ show: false, message: '', type: '' });
                   if (notification.type === 'success' && !submissionData?.other_part) {
-                    navigate('/writing_list');
+                    navigate(isForecast ? '/writing_forecast' : '/writing_list');
                   }
                 }}
-                className={`px-6 py-6 rounded-lg text-white ${
-                  notification.type === 'success' ? 'bg-lime-500 hover:bg-lime-600' : 'bg-red-500 hover:bg-red-600'
-                } transition-colors`}
+                className={`px-6 py-6 rounded-lg text-white ${notification.type === 'success' ? 'bg-lime-500 hover:bg-lime-600' : 'bg-red-500 hover:bg-red-600'
+                  } transition-colors`}
               >
-                {notification.type === 'success' ? 
-                  (submissionData?.other_part ? 'Continue to Next Part' : 'Back to Tests') 
+                {notification.type === 'success' ?
+                  (submissionData?.other_part ? 'Continue to Next Part' : 'Back to Tests')
                   : 'Close'}
               </button>
             </div>
           </div>
         </div>
       )}
+
+      {sampleOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-6 z-50">
+          <div className={`rounded-2xl max-w-5xl w-full p-8 ${colorThemeClasses[colorTheme]}`}>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold">Sample Writing</h2>
+              <button onClick={() => setSampleOpen(false)} className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300">Close</button>
+            </div>
+            <div className="max-h-[80vh] overflow-y-auto whitespace-pre-wrap text-lg leading-relaxed">
+              {task?.sample_essay || 'No sample available'}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <ForceLogoutDialog
+        isOpen={showForceLogoutDialog}
+        message={logoutMessage}
+        secondsRemaining={logoutCountdown}
+      />
     </div>
   );
 };

@@ -4,6 +4,7 @@ import EditProfile from './EditProfile';
 import ExamHistory from './ExamHistory';
 import Navbar from './Navbar';
 import { User, Edit, History, ChevronLeft, ChevronRight, BarChart, Headphones, PenTool, ArrowLeft, ArrowRight } from 'lucide-react';
+import { API_BASE } from '../config/api';
 
 const ProfilePage = () => {
   // Add accountStatus state
@@ -21,14 +22,14 @@ const ProfilePage = () => {
   const fetchData = useCallback(async () => {
     try {
       // Fetch profile data
-      const profileResponse = await fetch('http://localhost:8000/student/profile', {
+      const profileResponse = await fetch(`${API_BASE}/student/profile`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
       });
 
       // Fetch test statistics
-      const statsResponse = await fetch('http://localhost:8000/student/my-test-statistics', {
+      const statsResponse = await fetch(`${API_BASE}/student/my-test-statistics`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -36,7 +37,7 @@ const ProfilePage = () => {
       
       // Fetch account status for students
       if (localStorage.getItem('role') === 'student') {
-        const accountResponse = await fetch('http://localhost:8000/account-status', {
+        const accountResponse = await fetch(`${API_BASE}/account-status`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`
           }
@@ -81,7 +82,7 @@ const ProfilePage = () => {
   // Fetch VIP info for customers
   useEffect(() => {
     if (localStorage.getItem('role') === 'customer') {
-      fetch('http://localhost:8000/customer/vip/remaining-days', {
+      fetch(`${API_BASE}/customer/vip/remaining-days`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -150,7 +151,7 @@ const ProfilePage = () => {
                     onClick={() => setStatsSection(0)}
                     className={`px-3 py-1 rounded-lg text-sm ${
                       statsSection === 0 
-                        ? 'bg-lime-500 text-white' 
+                        ? 'bg-[#0096b1] text-white' 
                         : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                     }`}
                   >
@@ -160,7 +161,7 @@ const ProfilePage = () => {
                     onClick={() => setStatsSection(1)}
                     className={`px-3 py-1 rounded-lg text-sm ${
                       statsSection === 1 
-                        ? 'bg-lime-500 text-white' 
+                        ? 'bg-[#0096b1] text-white' 
                         : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                     }`}
                   >
@@ -226,7 +227,7 @@ const ProfilePage = () => {
                           })}</p>
                         </div>
                         <div className="text-right">
-                        <span className="text-2xl font-bold text-lime-500">{testStats.latest_test.total_score}</span>
+                        <span className="text-2xl font-bold text-[#0096b1]">{testStats.latest_test.total_score}</span>
                         <span className="text-sm text-gray-500 ml-1">Điểm</span>
                       </div>
                       </div>
@@ -235,7 +236,7 @@ const ProfilePage = () => {
                     <div className="flex justify-end">
                       <Link 
                         to={`/exam-result/${testStats.latest_test.result_id}`}
-                        className="text-sm text-lime-500 hover:text-lime-600 font-medium inline-flex items-center"
+                        className="text-sm text-[#0096b1] hover:text-[#0096b1] font-medium inline-flex items-center"
                       >
                         Xem chi tiết
                         <ChevronRight className="w-4 h-4 ml-1" />
@@ -252,7 +253,7 @@ const ProfilePage = () => {
                 <div className="grid grid-cols-2 gap-6">
                   <div className="bg-white rounded-xl border border-gray-100 p-6">
                     <div className="flex items-center gap-2 mb-4">
-                      <Headphones className="w-5 h-5 text-lime-500" />
+                      <Headphones className="w-5 h-5 text-[#0096b1]" />
                       <h2 className="text-xl font-semibold">Thống kê bài nghe</h2>
                     </div>
                     
@@ -279,7 +280,7 @@ const ProfilePage = () => {
                                   <p className="text-xs text-gray-500">{new Date(exam.completion_date).toLocaleDateString('vi-VN')}</p>
                                 </div>
                                 <div className="text-right">
-                                  <span className="font-medium text-lime-500">{exam.accuracy.toFixed(1)}%</span>
+                                  <span className="font-medium text-[#0096b1]">{exam.accuracy.toFixed(1)}%</span>
                                 </div>
                               </div>
                             ))}
@@ -293,7 +294,7 @@ const ProfilePage = () => {
                   
                   <div className="bg-white rounded-xl border border-gray-100 p-6">
                     <div className="flex items-center gap-2 mb-4">
-                      <PenTool className="w-5 h-5 text-lime-500" />
+                      <PenTool className="w-5 h-5 text-[#0096b1]" />
                       <h2 className="text-xl font-semibold">Thống kê bài viết</h2>
                     </div>
                     
@@ -346,7 +347,7 @@ const ProfilePage = () => {
   // Add this function to handle account activation
   const handleActivateAccount = async () => {
     try {
-      const response = await fetch('http://localhost:8000/student/activate-account', {
+      const response = await fetch(`${API_BASE}/student/activate-account`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -368,7 +369,7 @@ const ProfilePage = () => {
    accountStatus.is_active === 'inactive' && (
     <button
       onClick={handleActivateAccount}
-      className="ml-2 text-xs px-2 py-1 bg-lime-500 text-white rounded-md hover:bg-lime-600 transition-colors"
+      className="ml-2 text-xs px-2 py-1 bg-[#0096b1] text-white rounded-md hover:bg-[#0096b1] transition-colors"
     >
       Kích hoạt
     </button>
@@ -395,7 +396,7 @@ const ProfilePage = () => {
               <nav className="space-y-4 mt-3">
                 <div 
                   className={`flex items-center gap-3 p-2 cursor-pointer rounded-lg hover:bg-gray-50 ${
-                    activeView === 'profile' ? 'text-lime-500 bg-lime-50' : 'text-gray-600'
+                    activeView === 'profile' ? 'text-[#0096b1] bg-[#0096b1]-50' : 'text-gray-600'
                   }`}
                   onClick={() => setActiveView('profile')}
                   title={menuCollapsed ? "Tổng quan hồ sơ" : ""}
@@ -405,23 +406,13 @@ const ProfilePage = () => {
                 </div>
                 <div 
                   className={`flex items-center gap-3 p-2 cursor-pointer rounded-lg hover:bg-gray-50 ${
-                    activeView === 'edit' ? 'text-lime-500 bg-lime-50' : 'text-gray-600'
+                    activeView === 'edit' ? 'text-[#0096b1] bg-[#0096b1]-50' : 'text-gray-600'
                   }`}
                   onClick={() => setActiveView('edit')}
                   title={menuCollapsed ? "Chỉnh sửa hồ sơ" : ""}
                 >
                   <Edit className="w-5 h-5 min-w-5" />
                   {!menuCollapsed && <span>Chỉnh sửa hồ sơ</span>}
-                </div>
-                <div 
-                  className={`flex items-center gap-3 p-2 cursor-pointer rounded-lg hover:bg-gray-50 ${
-                    activeView === 'history' ? 'text-lime-500 bg-lime-50' : 'text-gray-600'
-                  }`}
-                  onClick={() => setActiveView('history')}
-                  title={menuCollapsed ? "Lịch sử bài thi" : ""}
-                >
-                  <History className="w-5 h-5 min-w-5" />
-                  {!menuCollapsed && <span>Lịch sử bài thi</span>}
                 </div>
               </nav>
             </div>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
 import { Key } from 'lucide-react';
+import { API_BASE } from '../config/api';
 
 const ResetPassword = ({ isOpen, closeModal, studentId, studentUsername }) => {
     const [resetStatus, setResetStatus] = useState({
@@ -23,7 +24,7 @@ const ResetPassword = ({ isOpen, closeModal, studentId, studentUsername }) => {
     const handleResetPassword = async () => {
         setIsLoading(true);
         try {
-            const response = await fetch(`http://localhost:8000/students/${studentId}/reset-password`, {
+            const response = await fetch(`${API_BASE}/students/${studentId}/reset-password`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('access_token')}`

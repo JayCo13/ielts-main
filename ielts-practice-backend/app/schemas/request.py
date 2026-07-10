@@ -13,12 +13,6 @@ class QuestionCreate(QuestionBase):
 class QuestionOptionCreate(QuestionOptionBase):
     question_id: int
 
-class SpeakingTopicCreate(SpeakingTopicBase):
-    pass
-
-class SpeakingQuestionCreate(SpeakingQuestionBase):
-    topic_id: int
-
 class WritingTaskCreate(WritingTaskBase):
     pass
 

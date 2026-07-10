@@ -6,13 +6,17 @@ from app.routes.admin.auth import get_current_student
 from typing import Dict
 from bs4 import BeautifulSoup
 from datetime import datetime
+from app.utils.datetime_utils import get_vietnam_time
 import groq
 import os
+import json  # Add this import
 from pydantic import BaseModel
 
 router = APIRouter()
 
-client = groq.Groq(api_key=os.getenv("GROQ_API_KEY"))
+# Create two separate clients with different API keys
+client_evaluation = groq.Groq(api_key=os.getenv("GROQ_API_KEY"))
+client_rewriting = groq.Groq(api_key=os.getenv("GROQ_REWRITING_API_KEY"))
 
 class EssayEvaluationRequest(BaseModel):
     part_number: int
@@ -26,89 +30,280 @@ async def evaluate_with_groq(essay_text: str, instructions: str, part_number: in
     instructions = instructions.strip().replace('\n', ' ').replace('\r', '')
     
     task_type = "Task 1" if part_number == 1 else "Task 2"
-    json_template = '''{
+    word_count = len(essay_text.split())
+    
+
+    target_words_task1 = 350  # Increased for Band 8+
+    target_words_task2 = 650  # Increased for Band 8+
+    
+    # Evaluation prompt (without rewriting part)
+    evaluation_prompt = f'''You are an expert IELTS Writing Examiner with 15+ years of experience. Evaluate this IELTS Writing {task_type} essay using the official IELTS band descriptors (0-9 scale). Be thorough and identify ALL mistakes present in the essay.
+
+**CRITICAL EVALUATION REQUIREMENTS:**
+1. **COMPREHENSIVE MISTAKE IDENTIFICATION:**
+   - Examine EVERY sentence for errors in grammar, vocabulary, task response, and coherence
+   - Identify ALL instances of:
+     * Grammatical errors (tense, subject-verb agreement, articles, prepositions, sentence structure)
+     * Vocabulary mistakes (word choice, collocation, register, spelling)
+     * Task achievement issues (incomplete answers, irrelevant content, insufficient development)
+     * Coherence problems (unclear connections, poor paragraph structure, weak transitions)
+   - For each criterion, find AT LEAST 5-8 specific mistakes if they exist
+   - Do not limit yourself to 2-3 mistakes per criterion - find ALL errors present
+
+2. **ACCURATE BAND SCORING:**
+
+### **IELTS Writing Task 1: Core Assessment Checklist**
+
+**(Target: 250+ words | Assess based on performance)**
+
+#### **1. Task Achievement (TA)**
+
+* **Overview:** Is there a clear, accurate summary of the main trends, differences, or stages in the introduction or as a clear opening/closing paragraph? (Absence of a clear overview caps the score at Band 5).
+* **Key Features:** Are the most significant and obvious points from the visual data selected and reported? Or for General Training (GT), are all three bullet points fully and appropriately addressed?
+* **Data/Details:** Is the supporting data accurate? Is there a good balance between key points and supporting details, or is it just a list of data?
+* **Tone (GT only):** Is the tone (formal/semi-formal/informal) consistently and appropriately maintained throughout the letter?
+
+#### **2. Coherence and Cohesion (CC)**
+
+* **Paragraphing:** Is the information logically grouped into paragraphs? (e.g., Introduction/Overview, Body Paragraph 1 for key feature A, Body Paragraph 2 for key feature B).
+* **Progression:** Is there a clear and logical flow of information from start to finish?
+* **Linking:** Are cohesive devices (e.g., "In contrast," "Furthermore," "This shows...") used accurately and effectively, without being mechanical or causing confusion?
+
+#### **3. Lexical Resource (LR)**
+
+* **Range & Precision:** Does the candidate use a varied and precise vocabulary to describe trends, comparisons, or make requests? (e.g., "rose sharply," "plateaued," "fluctuated" vs. just "went up/down").
+* **Less Common Vocabulary:** Are there skillful attempts at using less common words and collocations (e.g., "a corresponding decline," "remained relatively static")?
+* **Errors:** What is the impact of errors in word choice, spelling, or word formation? Do they impede understanding? (Minor slips are acceptable at high bands).
+
+#### **4. Grammatical Range and Accuracy (GRA)**
+
+* **Sentence Variety:** Is there a mix of simple, compound, and complex sentence structures? (A script with only simple sentences is capped at Band 5).
+* **Error-Free Sentences:** What percentage of sentences are completely free from grammatical errors? (Band 7+ requires frequent error-free sentences).
+* **Error Impact:** What is the nature and frequency of grammatical errors (e.g., tense, prepositions, articles)? Do they cause confusion for the reader?
+
+---
+
+### **IELTS Writing Task 2: Core Assessment Checklist**
+
+**(Target: 450+ words | Double Weight | Assess based on performance)**
+
+#### **1. Task Response (TR)**
+
+* **Address the Entire Question:** Has every part of the prompt been fully addressed? (e.g., For "Discuss both views and give your own opinion," are both views discussed *and* is a clear opinion present?). Partial address limits the score to Band 5.
+* **Clear Position:** Is the author's opinion or stance clear and consistent from the introduction to the conclusion?
+* **Idea Development:** Are the main ideas supported with relevant explanations and specific examples? Is there a tendency to overgeneralize, or are points well-developed and extended?
+* **Relevance:** Do all arguments directly relate to the question asked, or does the essay drift off-topic?
+
+#### **2. Coherence and Cohesion (CC)**
+
+* **Logical Structure:** Is there a clear and effective essay structure (Intro, Body Paragraphs, Conclusion)?
+* **Paragraph Focus:** Does each body paragraph have a clear central idea that contributes to the overall argument?
+* **Cohesive Flow:** Are ideas linked effectively across the essay? Is referencing (e.g., "this issue," "these solutions") clear and accurate?
+
+#### **3. Lexical Resource (LR)**
+
+* **Topic-Specific Vocabulary:** Does the candidate demonstrate a broad vocabulary relevant to the essay's topic?
+* **Precision & Style:** Is vocabulary used with precision and an awareness of style and collocation (e.g., not just "good/bad" but "beneficial/detrimental," "a significant drawback")?
+* **Error Impact:** How do vocabulary errors affect communication and precision?
+
+#### **4. Grammatical Range and Accuracy (GRA)**
+
+* **Structural Variety:** Does the candidate demonstrate flexible and accurate use of complex structures (e.g., conditionals, relative clauses, passive voice) to build their argument?
+* **Control & Accuracy:** What is the balance between simple and complex sentences, and what is the degree of accuracy in each?
+* **Error Impact:** Do grammatical and punctuation errors strain the reader or obscure the argument? (Frequent errors that cause difficulty will result in Band 5 or lower).
+
+### **Final Scoring Protocol**
+
+1.  **Score Each Criterion (1-9):** Assign a definitive band score for each of the four criteria for both tasks.
+2.  **Calculate Task Scores:** Average the four scores for each task (e.g., Task 2: TR 7, CC 7, LR 6, GRA 6 = 26/4 = 6.5).
+3.  **Calculate Final Weighted Score:** Apply the 2:1 weighting: **(Task 1 Score + (Task 2 Score x 2)) / 3**. Round to the nearest half-band (e.g., a 6.75 becomes 7.0, a 6.25 becomes 6.5).
+
+3. **TASK-SPECIFIC REQUIREMENTS:**
+   **Task 1 (Academic):** Must describe visual data accurately, highlight key features, make comparisons, use appropriate academic language
+   **Task 2:** Must address all parts of the question, present clear position, develop arguments with examples, maintain formal academic tone
+
+4. **VIETNAMESE TRANSLATION REQUIREMENTS:**
+   - ALL mistake explanations MUST be written in accurate, natural Vietnamese
+   - ALL improvement suggestions MUST be written in fluent, precise Vietnamese
+   - Use proper Vietnamese grammar, vocabulary, and sentence structure
+   - Avoid direct translations - use natural Vietnamese expressions
+   - Use formal, educational tone appropriate for language learning
+
+**JSON OUTPUT REQUIREMENTS:**
+- Your response MUST be valid JSON format
+- Use double quotes for all strings
+- Escape all special characters properly (\\n for newlines, \" for quotes)
+- Do not include any text outside the JSON structure
+
+**EVALUATION PROCESS:**
+1. Read the entire essay carefully
+2. Check word count and apply penalties if necessary
+3. Systematically examine each sentence for all types of errors
+4. Score each criterion based on the weakest aspect within that criterion
+5. Calculate overall band score (not an average - consider the weakest criterion)
+6. Provide comprehensive feedback with ALL identified mistakes
+7. Provide clear and concise improvement suggestions for ALL mistakes
+8. Rewrite the mistake phrase with the corrected version
+Return your evaluation in the exact JSON format below. All explanations and suggestions MUST be in accurate, natural Vietnamese.
+
+{{
     "band_score": "<overall_score>",
-    "criteria_scores": {
+    "criteria_scores": {{
         "task_achievement": "<score>",
         "coherence_cohesion": "<score>",
         "lexical_resource": "<score>",
         "grammatical_range": "<score>"
-    },
-    "mistakes": {
+    }},
+    "mistakes": {{
         "task_achievement": [
-            {"phrase": "<original_text>", "explanation": "<loi_bang_tieng_viet>"}
+            {{"phrase": "<original_text>", "explanation": "<loi_bang_tieng_viet>"}}
         ],
         "coherence_cohesion": [
-            {"phrase": "<original_text>", "explanation": "<loi_bang_tieng_viet>"}
+            {{"phrase": "<original_text>", "explanation": "<loi_bang_tieng_viet>"}}
         ],
         "lexical_resource": [
-            {"phrase": "<original_text>", "explanation": "<loi_bang_tieng_viet>"}
+            {{"phrase": "<original_text>", "explanation": "<loi_bang_tieng_viet>"}}
         ],
         "grammatical_range": [
-            {"phrase": "<original_text>", "explanation": "<loi_bang_tieng_viet>"}
+            {{"phrase": "<original_text>", "explanation": "<loi_bang_tieng_viet>"}}
         ]
-    },
-    "improvement_suggestions": {
+    }},
+    "improvement_suggestions": {{
         "task_achievement": [
-            {"phrase": "<original_text>", "suggestion": "<goi_y_bang_tieng_viet>"}
+            {{"phrase": "<original_text>", "suggestion": "<rewrite_correct_version_of_orignial_text>"}}
         ],
         "coherence_cohesion": [
-            {"phrase": "<original_text>", "suggestion": "<goi_y_bang_tieng_viet>"}
+            {{"phrase": "<original_text>", "suggestion": "<rewrite_correct_version_of_orignial_text>"}}
         ],
         "lexical_resource": [
-            {"phrase": "<original_text>", "suggestion": "<goi_y_bang_tieng_viet>"}
+            {{"phrase": "<original_text>", "suggestion": "<rewrite_correct_version_of_orignial_text>"}}
         ],
         "grammatical_range": [
-            {"phrase": "<original_text>", "suggestion": "<goi_y_bang_tieng_viet>"}
+            {{"phrase": "<original_text>", "suggestion": "<rewrite_correct_version_of_orignial_text>"}}
         ]
-    },
-    "rewritten_essay": "<new_essay_achieving_band_8>"
-}'''
+    }}
+}}
 
-    prompt = f'''You are an IELTS Writing Examiner. Evaluate the following IELTS Writing {task_type} essay strictly according to the official IELTS Writing band descriptors. Follow these steps:
+**Task Type:** IELTS Writing {task_type}
+**Task Instructions:** {instructions}
+**Student Essay ({word_count} words):** {essay_text}
 
-1. **Evaluate the Essay**:
-   - You MUST assess the essay based on ALL four IELTS Writing criteria: Task Achievement, Coherence and Cohesion, Lexical Resource, and Grammatical Range and Accuracy.
-   - For EACH of the four criteria, identify at least 2-3 specific phrases or sentences that need improvement.
-   - For each identified phrase, provide the original text and explain in Vietnamese what's wrong with it.
-   - Suggest specific improvements in Vietnamese for each identified phrase.
-   - Do not leave any of the four criteria blank or empty.
+**IMPORTANT:** Your response must be ONLY valid JSON. Do not include any explanatory text before or after the JSON. Ensure all strings are properly escaped.'''
 
-2. **Rewrite the Essay**:
-   - Write a new essay IN ENGLISH following the structure of the original essay but achieving a band score of 8.0.
-   - Ensure the rewritten essay demonstrates near-native proficiency, with advanced vocabulary, complex sentence structures, and clear, well-developed ideas.
-IMPORTANT: You MUST provide evaluations for ALL four criteria (Task Achievement, Coherence and Cohesion, Lexical Resource, and Grammatical Range). Do not leave any criteria empty or missing.
-Return your evaluation and rewritten essay in the following JSON format ONLY. All mistakes and improvement suggestions MUST be in Vietnamese language, but the rewritten essay MUST be in English:
+    # Rewriting prompt
+    rewriting_prompt = f'''You are an expert IELTS Writing Examiner with 15+ years of experience. Your task is to rewrite the following IELTS Writing {task_type} essay to demonstrate Band 8.0+ standard.
 
+**REWRITTEN ESSAY STANDARDS (CRITICAL FOR BAND 8+):**
+   - Target word count: 
+     * Task 1: Must be longer than {target_words_task1} words (Band 8+ standard)
+     * Task 2: Must be longer than {target_words_task2} words (Band 8+ standard)
+   - Band 8.0+ level: Wide range of vocabulary, natural and sophisticated language, flexible sentence structures, clear progression
+   - MUST include proper paragraph formatting with double newline characters (\\n\\n) between paragraphs
+   - Essay structure with clear paragraph breaks:
+     * Task 1: Introduction\\n\\ Overview\\n\\nBody paragraph 1\\n\\nBody paragraph 2 (if needed)
+     * Task 2: Introduction\\n\\nBody paragraph 1\\n\\nBody paragraph 2\\n\\nConclusion
+   - Use sophisticated linking words and cohesive devices
+   - Demonstrate lexical variety and grammatical complexity
 
-{json_template}
+**JSON OUTPUT REQUIREMENTS:**
+- Your response MUST be valid JSON format
+- Use double quotes for all strings
+- Escape all special characters properly (\\n for newlines, \" for quotes)
+- Do not include any text outside the JSON structure
+- Ensure the rewritten_essay field contains proper \\n\\n between paragraphs
 
-Task Type: IELTS Writing {task_type}
-Task Instructions: {instructions}
-Student Essay: {essay_text}
-'''
+**Task Type:** IELTS Writing {task_type}
+**Task Instructions:** {instructions}
+**Student Essay ({word_count} words):** {essay_text}
+
+**IMPORTANT:** Your response must be ONLY valid JSON with the following structure:
+{{
+    "rewritten_essay": "<essay_with_proper_paragraph_breaks_using_newlines>"
+}}
+
+Do not include any explanatory text before or after the JSON. Ensure all strings are properly escaped and the rewritten essay includes \\n\\n between paragraphs.'''
 
     try:
-        completion = client.chat.completions.create(
-            model="llama3-70b-8192",
-            messages=[
-                {"role": "system", "content": "You are an expert IELTS examiner. Always respond in the exact JSON format specified."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.3,
-            max_tokens=2048
-        )
+        print(f"[GROQ] Starting evaluation for part {part_number}")
+        print(f"[GROQ] Essay length: {len(essay_text)} chars, {word_count} words")
+        print(f"[GROQ] Instructions length: {len(instructions)} chars")
+        print(f"[GROQ] Evaluation prompt length: {len(evaluation_prompt)} chars")
+
+        # First model for evaluation (llama3-70b-8192)
+        try:
+            evaluation_completion = client_evaluation.chat.completions.create(
+                model="llama-3.3-70b-versatile",  # Using llama3 for evaluation
+                messages=[
+                    {"role": "system", "content": "You are an expert IELTS examiner with 15+ years of experience. You must identify ALL mistakes in student essays and provide accurate band scores according to official IELTS criteria. Always respond in the exact JSON format specified."},
+                    {"role": "user", "content": evaluation_prompt}
+                ],
+                temperature=0.6,
+                max_tokens=5000
+            )
+            eval_raw = evaluation_completion.choices[0].message.content if evaluation_completion.choices else None
+            print(f"[GROQ] Evaluation response length: {len(eval_raw) if eval_raw else 0} chars")
+            print(f"[GROQ] Evaluation response preview: {eval_raw[:200] if eval_raw else 'EMPTY/NONE'}")
+            if not eval_raw:
+                print(f"[GROQ] WARNING: Empty evaluation response. Full completion object: {evaluation_completion}")
+        except Exception as eval_err:
+            print(f"[GROQ] ERROR in evaluation API call: {type(eval_err).__name__}: {str(eval_err)}")
+            raise
         
-        return parse_evaluation_response(completion.choices[0].message.content)
+        # Second model for essay rewriting (claude-3-opus-20240229)
+        try:
+            rewriting_completion = client_rewriting.chat.completions.create(
+                model="llama-3.3-70b-versatile",  # Using Claude for rewriting
+                messages=[
+                    {"role": "system", "content": "You are an expert IELTS examiner with 15+ years of experience. Your task is to rewrite student essays to demonstrate Band 8.0+ standard. Always respond in the exact JSON format specified."},
+                    {"role": "user", "content": rewriting_prompt}
+                ],
+                temperature=1,  # Slightly higher temperature for more creative rewriting
+                max_tokens=6000
+            )
+            rewrite_raw = rewriting_completion.choices[0].message.content if rewriting_completion.choices else None
+            print(f"[GROQ] Rewriting response length: {len(rewrite_raw) if rewrite_raw else 0} chars")
+            if not rewrite_raw:
+                print(f"[GROQ] WARNING: Empty rewriting response. Full completion object: {rewriting_completion}")
+        except Exception as rewrite_err:
+            print(f"[GROQ] ERROR in rewriting API call: {type(rewrite_err).__name__}: {str(rewrite_err)}")
+            raise
+        
+        # Parse both responses
+        evaluation_result = parse_evaluation_response(eval_raw or "")
+        rewriting_result = parse_rewriting_response(rewrite_raw or "")
+        
+        # Combine the results
+        evaluation_result["rewritten_essay"] = rewriting_result["rewritten_essay"]
+        
+        print(f"[GROQ] Successfully completed evaluation. Band score: {evaluation_result.get('band_score')}")
+        return evaluation_result
+    except HTTPException:
+        raise
     except Exception as e:
+        print(f"[GROQ] FATAL ERROR: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"AI evaluation failed: {str(e)}"
         )
 
+def strip_markdown_fences(text: str) -> str:
+    """Strip markdown code fences from AI responses (e.g., ```json ... ```)"""
+    text = text.strip()
+    # Remove opening fence like ```json or ```
+    if text.startswith("```"):
+        first_newline = text.find("\n")
+        if first_newline != -1:
+            text = text[first_newline + 1:]
+    # Remove closing fence
+    if text.endswith("```"):
+        text = text[:-3]
+    return text.strip()
+
 def parse_evaluation_response(response: str) -> Dict:
     try:
-        import json
+        response = strip_markdown_fences(response)
         evaluation = json.loads(response)
         
         # Initialize default structures for missing fields
@@ -138,17 +333,36 @@ def parse_evaluation_response(response: str) -> Dict:
             },
             "mistakes": evaluation['mistakes'],
             "improvement_suggestions": evaluation['improvement_suggestions'],
-            "rewritten_essay": evaluation.get('rewritten_essay', '')
+            "rewritten_essay": ""  # This will be filled by the rewriting model
         }
     except json.JSONDecodeError as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to parse AI response as JSON: {str(e)}"
+            detail=f"Failed to parse AI evaluation response as JSON: {str(e)}"
         )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to process AI response: {str(e)}"
+            detail=f"Failed to process AI evaluation response: {str(e)}"
+        )
+
+def parse_rewriting_response(response: str) -> Dict:
+    try:
+        response = strip_markdown_fences(response)
+        rewriting = json.loads(response)
+        
+        return {
+            "rewritten_essay": rewriting.get('rewritten_essay', '')
+        }
+    except json.JSONDecodeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to parse AI rewriting response as JSON: {str(e)}"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to process AI rewriting response: {str(e)}"
         )
 
 @router.post("/evaluate", response_model=Dict)
@@ -185,7 +399,7 @@ async def evaluate_essay(
 
     return {
         "task_id": request.task_id,
-        "evaluation_timestamp": datetime.utcnow(),
+        "evaluation_timestamp": get_vietnam_time().replace(tzinfo=None),
         "word_count": len(essay_text.split()),
         "evaluation_result": evaluation
     }
@@ -263,7 +477,7 @@ async def evaluate_and_save_essay(
         writing_answer.improvement_suggestions = evaluation["improvement_suggestions"]
         writing_answer.rewritten_essay = evaluation["rewritten_essay"]
         writing_answer.is_ai_evaluated = True
-        writing_answer.updated_at = datetime.utcnow()
+        writing_answer.updated_at = get_vietnam_time().replace(tzinfo=None)
     else:
         writing_answer = WritingAnswer(
             task_id=task_id,
@@ -277,8 +491,8 @@ async def evaluate_and_save_essay(
             mistakes=evaluation["mistakes"],
             improvement_suggestions=evaluation["improvement_suggestions"],
             rewritten_essay=evaluation["rewritten_essay"],
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow()
+            created_at=get_vietnam_time().replace(tzinfo=None),
+            updated_at=get_vietnam_time().replace(tzinfo=None)
         )
         db.add(writing_answer)
 
@@ -287,7 +501,7 @@ async def evaluate_and_save_essay(
 
     return {
         "task_id": task_id,
-        "evaluation_timestamp": datetime.utcnow(),
+        "evaluation_timestamp": get_vietnam_time().replace(tzinfo=None),
         "word_count": len(clean_essay.split()),
         "evaluation_result": evaluation,
         "saved": True,

@@ -2,6 +2,7 @@ import React, { useState, Fragment } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Home, ChevronRight, UserPlus } from 'lucide-react';
+import { API_BASE } from '../../config/api';
 
 const CreateAccount = () => {
     const navigate = useNavigate();
@@ -17,7 +18,7 @@ const CreateAccount = () => {
         e.preventDefault();
 
         try {
-            const response = await fetch('http://localhost:8000/create-student', {
+            const response = await fetch(`${API_BASE}/create-student`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

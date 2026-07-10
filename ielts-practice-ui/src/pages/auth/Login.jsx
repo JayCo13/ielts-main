@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import loginImage from '../../images/thiieltstrenmaytinh.png';
+import { API_BASE } from '../../config/api';
 
 const LoginForm = () => {
     const [formData, setFormData] = useState({
@@ -59,24 +60,23 @@ const LoginForm = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();  // This line is crucial to prevent form auto-submission
-        
+
         // First validate the form
         if (!validateForm()) {
             return;
         }
-        
+
         try {
             const formBody = new URLSearchParams();
             formBody.append('username', formData.username);
             formBody.append('password', formData.password);
 
-            const response = await fetch('http://localhost:8000/login', {
+            const response = await fetch(`${API_BASE}/login`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                 },
                 body: formBody,
-                credentials: 'include'  // Add this to handle cookies properly
             });
 
             if (!response.ok) {
@@ -96,7 +96,7 @@ const LoginForm = () => {
             }
 
             const data = await response.json();
-            
+
             if (!data.access_token) {
                 setErrors({
                     ...errors,
@@ -104,13 +104,13 @@ const LoginForm = () => {
                 });
                 return;
             }
-            
+
             localStorage.setItem('access_token', data.access_token);
             localStorage.setItem('user_role', data.role);
             localStorage.setItem('username', data.username);
 
             navigate('/');
-            
+
         } catch (err) {
             setErrors({
                 ...errors,
@@ -119,8 +119,8 @@ const LoginForm = () => {
             console.error('Login error:', err);
         }
     };
- 
-    
+
+
     return (
         <div className="min-h-screen bg-gray-100 flex items-center justify-center p-6">
             <div className="bg-white rounded-lg shadow-lg w-full max-w-4xl flex overflow-hidden">
@@ -164,15 +164,15 @@ const LoginForm = () => {
                 <div className="w-1/2 p-12">
                     <div className="max-w-sm mx-auto">
                         <i><h2 className="text-2xl font-bold text-teal-400 mb-8">Ielts TaJun Dashboard Login</h2></i>
-                        
+
                         {errors.general && (
                             <div className="mb-4 p-2 text-sm text-red-600 bg-red-50 rounded">
                                 {errors.general}
                             </div>
                         )}
 
-                        <form 
-                            onSubmit={handleSubmit} 
+                        <form
+                            onSubmit={handleSubmit}
                             className="space-y-6"
                             autoComplete="off"  // Add this to prevent browser auto-complete
                         >

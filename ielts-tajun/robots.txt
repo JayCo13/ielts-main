@@ -1,0 +1,38 @@
+# https://www.robotstxt.org/robotstxt.html
+User-agent: *
+Allow: /
+
+# Admin routes
+Disallow: /admin/
+Disallow: /login/admin
+Disallow: /admin/thiieltstrenmay.com/
+Disallow: /admin/thiieltstrenmay.com/*
+Disallow: /manage_student
+Disallow: /manage_test
+Disallow: /create_student
+Disallow: /create_listening_test
+Disallow: /create_writing_test
+Disallow: /create_reading_test
+Disallow: /create_speaking_test
+Disallow: /packages
+Disallow: /transactions
+Disallow: /subscriptions
+Disallow: /settings
+
+# Security and private user pages
+Disallow: /auth-callback
+Disallow: /profile
+Disallow: /result_review
+Disallow: /result_review_rd
+Disallow: /exam-result/
+Disallow: /listening_test_room
+Disallow: /reading_test_room
+Disallow: /speaking_test_room
+Disallow: /writing_test_room
+Disallow: /payment
+Disallow: /transaction-status
+Disallow: /vip-confirmation
+Disallow: /my-vip-package
+
+# Sitemap
+Sitemap: https://thiieltstrenmay.com/sitemap.xml

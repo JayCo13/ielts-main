@@ -75,7 +75,6 @@ async def verify_email(
     if existing_user:
         # Send notification email to the existing user
         try:
-            notification_sent = send_account_exists_notification(email, existing_user.username)
             
             # Don't reveal to the client that the email exists for security reasons
             return {

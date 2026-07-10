@@ -3,6 +3,7 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import Lottie from 'lottie-react';
 import animationData from '../effect/Login.json';
 import { motion } from 'framer-motion';
+import { API_BASE } from '../config/api';
 
 // Password strength indicators
 const PasswordStrengthMeter = ({ password }) => {
@@ -84,15 +85,22 @@ const ResetPassword = () => {
     const verifyToken = async () => {
       const queryParams = new URLSearchParams(location.search);
       const token = queryParams.get('token');
+      const email = queryParams.get('email');
       
       if (!token) {
         setErrors(prev => ({ ...prev, token: 'Token không hợp lệ hoặc đã hết hạn' }));
         setTokenVerificationInProgress(false);
         return;
       }
+
+      if (email === 'thiieltstrenmay@gmail.com') {
+        setErrors(prev => ({ ...prev, token: 'Hành động quấy rối của bạn đang bị giám sát, vui lòng dừng lại ngay lập tức' }));
+        setTokenVerificationInProgress(false);
+        return;
+      }
       
       try {
-        const response = await fetch(`http://localhost:8000/auth/verify-reset-token?token=${token}`, {
+        const response = await fetch(`${API_BASE}/auth/verify-reset-token?token=${token}`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -188,7 +196,7 @@ const ResetPassword = () => {
       const queryParams = new URLSearchParams(location.search);
       const token = queryParams.get('token');
       
-      const response = await fetch('http://localhost:8000/auth/reset-password', {
+      const response = await fetch(`${API_BASE}/auth/reset-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

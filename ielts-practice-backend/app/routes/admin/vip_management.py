@@ -8,6 +8,7 @@ from typing import List
 from sqlalchemy.orm import joinedload
 from sqlalchemy import func, case
 from pydantic import BaseModel
+from app.utils.datetime_utils import get_vietnam_time
 
 router = APIRouter()
 class TransactionUpdate(BaseModel):
@@ -48,7 +49,7 @@ async def create_vip_package(
         skill_type=skill_type,
         description=description,
         is_active=True,
-        created_at=datetime.utcnow()
+        created_at=get_vietnam_time().replace(tzinfo=None)
     )
     db.add(package)
     db.commit()
@@ -148,15 +149,34 @@ async def get_all_subscriptions(
             "description": s.package.description
         }
         
+        # Get associated transaction for this subscription
+        transaction = db.query(PackageTransaction).filter(
+            PackageTransaction.subscription_id == s.subscription_id
+        ).first()
+        
+        transaction_info = None
+        if transaction:
+            transaction_info = {
+                "transaction_id": transaction.transaction_id,
+                "amount": float(transaction.amount),
+                "payment_method": transaction.payment_method,
+                "status": transaction.status,
+                "admin_note": transaction.admin_note,
+                "payos_order_code": transaction.payos_order_code,
+                "created_at": transaction.created_at
+            }
+        
         result.append({
             "subscription_id": s.subscription_id,
             "user_id": s.user_id,
-            "user_email": s.user.email, # Access user email via relationship
-            "package": package_info, # Include the detailed package info object
+            "user_email": s.user.email,
+            "username": s.user.username,
+            "package": package_info,
             "start_date": s.start_date,
             "end_date": s.end_date,
             "payment_status": s.payment_status,
-            "created_at": s.created_at # Optionally add creation date
+            "created_at": s.created_at,
+            "transaction": transaction_info
         })
         
     return result
@@ -256,7 +276,7 @@ async def get_packages_dashboard(
     # Get subscription statistics
     total_subscriptions = db.query(VIPSubscription).count()
     active_subscriptions = db.query(VIPSubscription).filter(
-        VIPSubscription.end_date > datetime.utcnow(),
+        VIPSubscription.end_date > get_vietnam_time().replace(tzinfo=None),
         VIPSubscription.payment_status == "completed"
     ).count()
     
@@ -312,13 +332,69 @@ async def get_total_revenue(
     db: Session = Depends(get_db)
 ):
     """Get total revenue from completed transactions"""
+    from datetime import timedelta
+    now = get_vietnam_time().replace(tzinfo=None)
+
     # Calculate total revenue
     total_revenue = db.query(func.sum(PackageTransaction.amount)).filter(
         PackageTransaction.status == "completed"
     ).scalar() or 0
-    
-    # Get monthly revenue for current year
-    current_year = datetime.utcnow().year
+
+    # Today's revenue
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_revenue = db.query(func.sum(PackageTransaction.amount)).filter(
+        PackageTransaction.status == "completed",
+        PackageTransaction.created_at >= today_start
+    ).scalar() or 0
+
+    # This month's revenue
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    month_revenue = db.query(func.sum(PackageTransaction.amount)).filter(
+        PackageTransaction.status == "completed",
+        PackageTransaction.created_at >= month_start
+    ).scalar() or 0
+
+    # This year's revenue
+    year_start = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+    year_revenue = db.query(func.sum(PackageTransaction.amount)).filter(
+        PackageTransaction.status == "completed",
+        PackageTransaction.created_at >= year_start
+    ).scalar() or 0
+
+    # Weekly revenue for the last 12 weeks
+    twelve_weeks_ago = now - timedelta(weeks=12)
+    weekly_revenue_raw = db.query(
+        func.date(PackageTransaction.created_at).label('date'),
+        func.sum(PackageTransaction.amount).label('revenue')
+    ).filter(
+        PackageTransaction.status == "completed",
+        PackageTransaction.created_at >= twelve_weeks_ago
+    ).group_by(
+        func.date(PackageTransaction.created_at)
+    ).order_by(
+        func.date(PackageTransaction.created_at)
+    ).all()
+
+    # Group daily data into weeks
+    from collections import defaultdict
+    weekly_buckets = defaultdict(float)
+    for date_val, revenue in weekly_revenue_raw:
+        from datetime import date as date_type
+        if isinstance(date_val, str):
+            d = datetime.strptime(date_val, "%Y-%m-%d").date()
+        else:
+            d = date_val
+        # Get the Monday of that week
+        week_start = d - timedelta(days=d.weekday())
+        weekly_buckets[week_start] += float(revenue)
+
+    weekly_revenue_list = [
+        {"week_start": str(k), "revenue": v}
+        for k, v in sorted(weekly_buckets.items())
+    ]
+
+    # Monthly revenue for current year
+    current_year = now.year
     monthly_revenue = db.query(
         func.extract('month', PackageTransaction.created_at).label('month'),
         func.sum(PackageTransaction.amount).label('revenue')
@@ -327,12 +403,194 @@ async def get_total_revenue(
         func.extract('year', PackageTransaction.created_at) == current_year
     ).group_by(
         func.extract('month', PackageTransaction.created_at)
+    ).order_by(
+        func.extract('month', PackageTransaction.created_at)
+    ).all()
+
+    # Yearly revenue
+    yearly_revenue = db.query(
+        func.extract('year', PackageTransaction.created_at).label('year'),
+        func.sum(PackageTransaction.amount).label('revenue')
+    ).filter(
+        PackageTransaction.status == "completed"
+    ).group_by(
+        func.extract('year', PackageTransaction.created_at)
+    ).order_by(
+        func.extract('year', PackageTransaction.created_at)
     ).all()
     
     return {
         "total_revenue": float(total_revenue),
+        "today_revenue": float(today_revenue),
+        "month_revenue": float(month_revenue),
+        "year_revenue": float(year_revenue),
+        "weekly_revenue": weekly_revenue_list,
         "monthly_revenue": [{
             "month": int(month),
             "revenue": float(revenue)
-        } for month, revenue in monthly_revenue]
+        } for month, revenue in monthly_revenue],
+        "yearly_revenue": [{
+            "year": int(year),
+            "revenue": float(revenue)
+        } for year, revenue in yearly_revenue]
+    }
+
+
+@router.get("/dashboard/revenue-detail", response_model=dict)
+async def get_revenue_detail(
+    current_admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Detailed revenue analytics: daily, monthly, quarterly, yearly with comparisons"""
+    from datetime import timedelta
+    from calendar import monthrange
+    now = get_vietnam_time().replace(tzinfo=None)
+
+    # ── DAILY ──
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    yesterday_start = today_start - timedelta(days=1)
+
+    today_rev = float(db.query(func.coalesce(func.sum(PackageTransaction.amount), 0)).filter(
+        PackageTransaction.status == "completed",
+        PackageTransaction.created_at >= today_start
+    ).scalar())
+
+    yesterday_rev = float(db.query(func.coalesce(func.sum(PackageTransaction.amount), 0)).filter(
+        PackageTransaction.status == "completed",
+        PackageTransaction.created_at >= yesterday_start,
+        PackageTransaction.created_at < today_start
+    ).scalar())
+
+    daily_change = round(((today_rev - yesterday_rev) / yesterday_rev) * 100, 1) if yesterday_rev > 0 else None
+
+    # ── MONTHLY ──
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    if now.month == 1:
+        prev_month_start = now.replace(year=now.year - 1, month=12, day=1, hour=0, minute=0, second=0, microsecond=0)
+    else:
+        prev_month_start = now.replace(month=now.month - 1, day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    current_month_rev = float(db.query(func.coalesce(func.sum(PackageTransaction.amount), 0)).filter(
+        PackageTransaction.status == "completed",
+        PackageTransaction.created_at >= month_start
+    ).scalar())
+
+    prev_month_rev = float(db.query(func.coalesce(func.sum(PackageTransaction.amount), 0)).filter(
+        PackageTransaction.status == "completed",
+        PackageTransaction.created_at >= prev_month_start,
+        PackageTransaction.created_at < month_start
+    ).scalar())
+
+    monthly_change = round(((current_month_rev - prev_month_rev) / prev_month_rev) * 100, 1) if prev_month_rev > 0 else None
+
+    # ── QUARTERLY ──
+    def get_quarter(month):
+        return (month - 1) // 3 + 1
+
+    def quarter_start_month(q):
+        return (q - 1) * 3 + 1
+
+    current_q = get_quarter(now.month)
+    current_q_start = now.replace(month=quarter_start_month(current_q), day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    # Previous quarter
+    if current_q == 1:
+        prev_q = 4
+        prev_q_year = now.year - 1
+    else:
+        prev_q = current_q - 1
+        prev_q_year = now.year
+
+    prev_q_start = datetime(prev_q_year, quarter_start_month(prev_q), 1, 0, 0, 0)
+    prev_q_end = current_q_start
+
+    current_q_rev = float(db.query(func.coalesce(func.sum(PackageTransaction.amount), 0)).filter(
+        PackageTransaction.status == "completed",
+        PackageTransaction.created_at >= current_q_start
+    ).scalar())
+
+    prev_q_rev = float(db.query(func.coalesce(func.sum(PackageTransaction.amount), 0)).filter(
+        PackageTransaction.status == "completed",
+        PackageTransaction.created_at >= prev_q_start,
+        PackageTransaction.created_at < prev_q_end
+    ).scalar())
+
+    quarterly_change = round(((current_q_rev - prev_q_rev) / prev_q_rev) * 100, 1) if prev_q_rev > 0 else None
+
+    # Full quarterly breakdown across ALL years
+    quarter_breakdown_raw = db.query(
+        func.extract('year', PackageTransaction.created_at).label('year'),
+        func.extract('month', PackageTransaction.created_at).label('month'),
+        func.sum(PackageTransaction.amount).label('revenue')
+    ).filter(
+        PackageTransaction.status == "completed"
+    ).group_by(
+        func.extract('year', PackageTransaction.created_at),
+        func.extract('month', PackageTransaction.created_at)
+    ).all()
+
+    # Group monthly data into quarters
+    from collections import defaultdict
+    quarter_buckets = defaultdict(float)
+    for year_val, month_val, revenue in quarter_breakdown_raw:
+        y = int(year_val)
+        q = get_quarter(int(month_val))
+        quarter_buckets[(y, q)] += float(revenue)
+
+    quarter_breakdown = sorted([
+        {
+            "year": y,
+            "quarter": f"Q{q}",
+            "quarter_number": q,
+            "months": f"T{quarter_start_month(q)}-T{quarter_start_month(q) + 2}",
+            "revenue": rev
+        }
+        for (y, q), rev in quarter_buckets.items()
+    ], key=lambda x: (x["year"], x["quarter_number"]))
+
+    # ── YEARLY ──
+    year_start = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+    prev_year_start = datetime(now.year - 1, 1, 1, 0, 0, 0)
+
+    current_year_rev = float(db.query(func.coalesce(func.sum(PackageTransaction.amount), 0)).filter(
+        PackageTransaction.status == "completed",
+        PackageTransaction.created_at >= year_start
+    ).scalar())
+
+    prev_year_rev = float(db.query(func.coalesce(func.sum(PackageTransaction.amount), 0)).filter(
+        PackageTransaction.status == "completed",
+        PackageTransaction.created_at >= prev_year_start,
+        PackageTransaction.created_at < year_start
+    ).scalar())
+
+    yearly_change = round(((current_year_rev - prev_year_rev) / prev_year_rev) * 100, 1) if prev_year_rev > 0 else None
+
+    return {
+        "daily": {
+            "today": today_rev,
+            "yesterday": yesterday_rev,
+            "change_percent": daily_change
+        },
+        "monthly": {
+            "current_month": current_month_rev,
+            "current_month_label": f"Tháng {now.month}/{now.year}",
+            "previous_month": prev_month_rev,
+            "previous_month_label": f"Tháng {prev_month_start.month}/{prev_month_start.year}",
+            "change_percent": monthly_change
+        },
+        "quarterly": {
+            "current_quarter": current_q_rev,
+            "current_quarter_label": f"Quý {current_q}/{now.year}",
+            "previous_quarter": prev_q_rev,
+            "previous_quarter_label": f"Quý {prev_q}/{prev_q_year}",
+            "change_percent": quarterly_change,
+            "quarter_breakdown": quarter_breakdown
+        },
+        "yearly": {
+            "current_year": current_year_rev,
+            "current_year_label": str(now.year),
+            "previous_year": prev_year_rev,
+            "previous_year_label": str(now.year - 1),
+            "change_percent": yearly_change
+        }
     }

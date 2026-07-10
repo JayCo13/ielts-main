@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { ChevronRight, Home, Clock, CheckCircle, XCircle } from 'lucide-react';
 import { w3cwebsocket as W3CWebSocket } from 'websocket';
+import { API_BASE } from '../config/api';
+
+const WS_BASE = API_BASE.replace(/^http/, 'ws');
 
 const TransactionStatus = () => {
     const [status, setStatus] = useState('pending');
@@ -45,7 +48,7 @@ const TransactionStatus = () => {
 
         const checkStatus = async () => {
             try {
-                const response = await fetch(`http://localhost:8000/customer/vip/transactions/${transactionId}/status`, {
+                const response = await fetch(`${API_BASE}/customer/vip/transactions/${transactionId}/status`, {
                     headers: {
                         'Authorization': `Bearer ${localStorage.getItem('token')}`
                     }
@@ -59,7 +62,7 @@ const TransactionStatus = () => {
 
         const connectWebSocket = () => {
             try {
-                wsClient = new W3CWebSocket(`ws://localhost:8000/ws/transactions/${transactionId}/status`);
+                wsClient = new W3CWebSocket(`${WS_BASE}/ws/transactions/${transactionId}/status`);
 
                 wsClient.onopen = () => {
                     console.log('WebSocket Connected');
@@ -116,7 +119,7 @@ const TransactionStatus = () => {
             timer = setInterval(() => {
                 const endTime = parseInt(localStorage.getItem('paymentEndTime'));
                 const remaining = Math.max(0, Math.floor((endTime - Date.now()) / 1000));
-                
+
                 if (remaining <= 0) {
                     setTimeLeft(0);
                     setShowZalo(true);
@@ -155,7 +158,7 @@ const TransactionStatus = () => {
                 <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-200 border-t-blue-500" />
             ),
             title: 'Đang xem xét thanh toán',
-            message: showZalo 
+            message: showZalo
                 ? 'Đã vượt quá thời gian xác minh thanh toán. Vui lòng liên hệ với quản trị viên để được hỗ trợ.'
                 : `Thanh toán của bạn đang được đội ngũ của chúng tôi xác minh. Thời gian còn lại: ${formatTime(timeLeft)}`,
             color: 'text-blue-500',
@@ -204,11 +207,11 @@ const TransactionStatus = () => {
                     <p className="text-gray-600 mb-6">
                         {StatusInfo.message}
                     </p>
-                    
+
                     {status === 'pending' && showZalo && (
                         <div className="space-y-4 max-w-sm mx-auto mt-6">
                             <a
-                                href="https://zalo.me/admin-phone-number"
+                                href="https://zalo.me/0964996195"
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="block w-full py-3 px-6 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-colors"
@@ -217,7 +220,7 @@ const TransactionStatus = () => {
                             </a>
                         </div>
                     )}
-                    
+
                     {status === 'rejected' && (
                         <div className="space-y-4 max-w-sm mx-auto">
                             <Link
@@ -227,7 +230,7 @@ const TransactionStatus = () => {
                                 Thử lại
                             </Link>
                             <a
-                                href="https://www.facebook.com/founder"
+                                href="https://zalo.me/0964996195"
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="block w-full py-3 px-6 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition-colors"

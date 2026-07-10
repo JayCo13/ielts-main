@@ -1,43 +1,146 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
   <head>
     <meta charset="utf-8" />
-    <link rel="icon" href="%PUBLIC_URL%/img/logo-ielts.png" />
+    <link rel="icon" type="image/png" href="/img/logo-ielts.png" />
+    <link rel="canonical" href="https://thiieltstrenmay.com" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#000000" />
-    <meta
-      name="description"
-      content="Web site created using create-react-app"
-    />
-    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
-    <!--
-      manifest.json provides metadata used when your web app is installed on a
-      user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/
-    -->
-    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
-    <!--
-      Notice the use of %PUBLIC_URL% in the tags above.
-      It will be replaced with the URL of the `public` folder during the build.
-      Only files inside the `public` folder can be referenced from the HTML.
+    <meta name="theme-color" content="#1e40af" />
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+    <meta name="googlebot" content="index, follow" />
+    
+    <!-- Enhanced SEO Meta Tags -->
+    <meta name="description" content="Thi IELTS trên máy - thiieltstrenmay.com. Luyện thi IELTS online với giao diện giống thi thật 100%. Bài thi IELTS Listening, Reading, Writing, Speaking. Cải thiện điểm IELTS hiệu quả." />
+    <meta name="keywords" content="thi ielts tren may, thiieltstrenmay, thiieltstrenmay.com, luyện thi IELTS, IELTS online, thi IELTS trực tuyến, IELTS listening, IELTS reading, IELTS writing, IELTS speaking, luyện IELTS, bài thi IELTS" />
+    <meta name="author" content="thiieltstrenmay.com" />
+    <meta name="language" content="Vietnamese" />
+    <meta name="geo.region" content="VN" />
+    <meta name="geo.country" content="Vietnam" />
+    
+    <!-- Open Graph Meta Tags for Social Media -->
+    <meta property="og:title" content="Thi IELTS trên máy - thiieltstrenmay.com | Luyện thi IELTS online" />
+    <meta property="og:description" content="Luyện thi IELTS online với giao diện giống thi thật 100%. Bài thi IELTS Listening, Reading, Writing, Speaking. Cải thiện điểm IELTS hiệu quả." />
+    <meta property="og:image" content="https://thiieltstrenmay.com/img/logo-ielts.png" />
+    <meta property="og:url" content="https://thiieltstrenmay.com" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="thiieltstrenmay.com" />
+    <meta property="og:locale" content="vi_VN" />
+    
+    <!-- Twitter Card Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Thi IELTS trên máy - thiieltstrenmay.com" />
+    <meta name="twitter:description" content="Luyện thi IELTS online với giao diện giống thi thật 100%" />
+    <meta name="twitter:image" content="https://thiieltstrenmay.com/img/logo-ielts.png" />
+    
+    <!-- Structured Data for SEO -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "EducationalOrganization",
+      "name": "thiieltstrenmay.com",
+      "alternateName": "Thi IELTS trên máy",
+      "url": "https://thiieltstrenmay.com",
+      "logo": "https://thiieltstrenmay.com/img/logo-ielts.png",
+      "description": "Luyện thi IELTS online với giao diện giống thi thật 100%. Bài thi IELTS Listening, Reading, Writing, Speaking.",
+      "address": {
+        "@type": "PostalAddress",
+        "addressCountry": "VN"
+      },
+      "sameAs": [
+        "https://thiieltstrenmay.com"
+      ],
+      "offers": {
+        "@type": "Offer",
+        "category": "Education",
+        "description": "IELTS Online Training"
+      }
+    }
+    </script>
 
-      Unlike "/favicon.ico" or "favicon.ico", "%PUBLIC_URL%/favicon.ico" will
-      work correctly both with client-side routing and a non-root public URL.
-      Learn how to configure a non-root public URL by running `npm run build`.
-    -->
-    <title>thiieltstrenmay.com</title>
+    <!-- WebSite + Sitelinks Search Box -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "thiieltstrenmay.com",
+      "alternateName": "Thi IELTS trên máy",
+      "url": "https://thiieltstrenmay.com",
+      "inLanguage": "vi-VN",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": "https://thiieltstrenmay.com/search?q={search_term_string}"
+        },
+        "query-input": "required name=search_term_string"
+      }
+    }
+    </script>
+
+    <!-- Course offering -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Course",
+      "name": "Luyện thi IELTS trên máy tính (Computer-delivered IELTS)",
+      "description": "Khóa luyện thi IELTS online mô phỏng giao diện thi trên máy tính giống thật 100%, gồm 4 kỹ năng Listening, Reading, Writing, Speaking. Có chấm chữa Writing bằng AI.",
+      "inLanguage": "vi-VN",
+      "provider": {
+        "@type": "EducationalOrganization",
+        "name": "thiieltstrenmay.com",
+        "sameAs": "https://thiieltstrenmay.com"
+      },
+      "hasCourseInstance": {
+        "@type": "CourseInstance",
+        "courseMode": "online",
+        "courseWorkload": "PT2H"
+      }
+    }
+    </script>
+
+    <!-- FAQ -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Thi IELTS trên máy là gì?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Thi IELTS trên máy (Computer-delivered IELTS) là hình thức làm bài IELTS trực tiếp trên máy tính thay vì giấy. thiieltstrenmay.com mô phỏng lại giao diện thi thật để bạn luyện tập làm quen trước kỳ thi."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Luyện thi IELTS trên thiieltstrenmay.com có miễn phí không?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Bạn có thể thi thử miễn phí, không giới hạn thời gian và không cần thẻ tín dụng. Các kho đề nâng cao dành cho thành viên VIP."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Website có những kỹ năng IELTS nào?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Đầy đủ 4 kỹ năng: Listening, Reading, Writing và Speaking, với giao diện giống đề thi thật và chấm chữa Writing bằng AI."
+          }
+        }
+      ]
+    }
+    </script>
+
+    <!-- Apple Touch Icon -->
+    <link rel="apple-touch-icon" href="/img/logo-ielts.png" />
+    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+    
+    <!-- Enhanced Title -->
+    <title>Thi IELTS trên máy - thiieltstrenmay.com | Luyện thi IELTS online</title>
   </head>
   <body>
-    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <noscript>Bạn cần bật JavaScript để sử dụng ứng dụng này.</noscript>
     <div id="root"></div>
-    <!--
-      This HTML file is a template.
-      If you open it directly in the browser, you will see an empty page.
-
-      You can add webfonts, meta tags, or analytics to this file.
-      The build step will place the bundled scripts into the <body> tag.
-
-      To begin the development, run `npm start` or `yarn start`.
-      To create a production bundle, use `npm run build` or `yarn build`.
-    -->
   </body>
 </html>

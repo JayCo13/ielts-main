@@ -1,1 +1,1 @@
-from .models import User, ExamResult, Exam, ExamSection, Question, QuestionOption, SpeakingTopic, SpeakingQuestion, WritingTask, ListeningMedia, ReadingPassage
+from .models import User, ExamResult, Exam, ExamSection, Question, QuestionOption, WritingTask, ListeningMedia, ReadingPassage, SpeakingMaterial, SpeakingMaterialAccessType

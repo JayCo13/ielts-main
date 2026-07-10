@@ -21,3 +21,18 @@ dist/
 
 # OS
 .DS_Store
+# Python virtualenv
+venv/
+
+# Uploaded media — lives on the server only (VPS/cloud), never in git
+ielts-practice-backend/static/
+
+# TLS material — env-specific, never in git
+nginx/certbot/
+nginx/ssl/
+
+# Local artifacts
+dump.rdb
+*.sql
+*.sql.gz
+backups/

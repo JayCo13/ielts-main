@@ -5,6 +5,8 @@ import animationData from '../effect/Register.json';
 import loadingAnimation from '../effect/loading.json';
 // Add this import for Google login
 import { startStatusPing } from '../utils/statusManager';
+import secureStorage from '../utils/secureStorage';
+import { API_BASE } from '../config/api';
 
 const Register = () => {
   const navigate = useNavigate();
@@ -32,7 +34,7 @@ const Register = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    
+
     setFormData({
       ...formData,
       [name]: value
@@ -56,11 +58,18 @@ const Register = () => {
       return;
     }
 
+    // Check for blocked email
+    if (formData.email.trim() === 'thiieltstrenmay@gmail.com') {
+      setErrors(prev => ({ ...prev, email: 'Hành động quấy rối của bạn đang bị giám sát, vui lòng dừng lại ngay lập tức' }));
+      setIsEmailValid(false);
+      return;
+    }
+
     setIsVerifyingEmail(true);
     setErrors(prev => ({ ...prev, email: '' }));
 
     try {
-      const response = await fetch('http://localhost:8000/auth/verify-email', {
+      const response = await fetch(`${API_BASE}/auth/verify-email`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -73,7 +82,7 @@ const Register = () => {
       const data = await response.json();
 
       if (response.ok) {
-        if (data.valid) {
+        if (data.valid && formData.email.trim() !== 'thiieltstrenmay@gmail.com') {
           setIsEmailValid(true);
         } else {
           setErrors(prev => ({
@@ -104,7 +113,7 @@ const Register = () => {
   const calculatePasswordStrength = (password) => {
     // Start with 0 strength
     let strength = 0;
-    
+
     if (password.length === 0) {
       setPasswordStrength(0);
       return;
@@ -113,34 +122,34 @@ const Register = () => {
     // Add strength based on length (up to 30 points)
     const lengthScore = Math.min(30, Math.floor(password.length * 3));
     strength += lengthScore;
-    
+
     // Add strength for uppercase letters (up to 20 points)
     if (/[A-Z]/.test(password)) {
       const uppercaseCount = (password.match(/[A-Z]/g) || []).length;
       strength += Math.min(20, uppercaseCount * 5);
     }
-    
+
     // Add strength for lowercase letters (up to 10 points)
     if (/[a-z]/.test(password)) {
       const lowercaseCount = (password.match(/[a-z]/g) || []).length;
       strength += Math.min(10, lowercaseCount * 2);
     }
-    
+
     // Add strength for numbers (up to 20 points)
     if (/[0-9]/.test(password)) {
       const numberCount = (password.match(/[0-9]/g) || []).length;
       strength += Math.min(20, numberCount * 5);
     }
-    
+
     // Add strength for special characters (up to 20 points)
     if (/[^A-Za-z0-9]/.test(password)) {
       const specialCount = (password.match(/[^A-Za-z0-9]/g) || []).length;
       strength += Math.min(20, specialCount * 5);
     }
-    
+
     // Cap strength at 100
     strength = Math.min(100, strength);
-    
+
     setPasswordStrength(strength);
   };
 
@@ -151,30 +160,30 @@ const Register = () => {
     const lowercaseChars = 'abcdefghijklmnopqrstuvwxyz';
     const numberChars = '0123456789';
     const specialChars = '!@#$%^&*()_+~`|}{[]:;?><,./-=';
-    
+
     let allChars = uppercaseChars + lowercaseChars + numberChars + specialChars;
     let password = '';
-    
+
     // Ensure we have at least one of each type of character
     password += uppercaseChars.charAt(Math.floor(Math.random() * uppercaseChars.length));
     password += lowercaseChars.charAt(Math.floor(Math.random() * lowercaseChars.length));
     password += numberChars.charAt(Math.floor(Math.random() * numberChars.length));
     password += specialChars.charAt(Math.floor(Math.random() * specialChars.length));
-    
+
     // Fill the rest with random characters
     for (let i = 4; i < length; i++) {
       password += allChars.charAt(Math.floor(Math.random() * allChars.length));
     }
-    
+
     // Shuffle the password to make it random
     password = password.split('').sort(() => 0.5 - Math.random()).join('');
-    
+
     setFormData({
       ...formData,
       password,
       confirmPassword: password
     });
-    
+
     calculatePasswordStrength(password);
   };
 
@@ -214,6 +223,9 @@ const Register = () => {
     if (!formData.email.trim()) {
       newErrors.email = 'Email là bắt buộc';
       isValid = false;
+    } else if (formData.email.trim() === 'thiieltstrenmay@gmail.com') {
+      newErrors.email = 'Tài khoản này đã bị chặn';
+      isValid = false;
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
       newErrors.email = 'Định dạng email không hợp lệ';
       isValid = false;
@@ -221,7 +233,7 @@ const Register = () => {
       // Verify email if not already validated
       setIsVerifyingEmail(true);
       try {
-        const response = await fetch('http://localhost:8000/verify-email', {
+        const response = await fetch(`${API_BASE}/verify-email`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -266,15 +278,15 @@ const Register = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!(await validateForm())) {
       return;
     }
-    
+
     setIsLoading(true);
-    
+
     try {
-      const response = await fetch('http://localhost:8000/register', {
+      const response = await fetch(`${API_BASE}/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -291,12 +303,11 @@ const Register = () => {
       if (response.ok) {
         // Store token in localStorage
         localStorage.setItem('token', data.access_token);
-        localStorage.setItem('role', data.role);
         localStorage.setItem('username', data.username);
-        
+
         // Show success message
         setRegistrationSuccess(true);
-        
+
         // Redirect to login after 3 seconds
         setTimeout(() => {
           navigate('/login');
@@ -318,32 +329,31 @@ const Register = () => {
     }
   };
 
-// Add this useEffect after your state declarations
-useEffect(() => {
+  // Add this useEffect after your state declarations
+  useEffect(() => {
     // Check if this is a redirect from Google OAuth
     const urlParams = new URLSearchParams(window.location.search);
     const token = urlParams.get('token');
     const error = urlParams.get('error');
-    
+
     if (token) {
       // Parse the JWT token to get user info
       try {
         const base64Url = token.split('.')[1];
         const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-        const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+        const jsonPayload = decodeURIComponent(atob(base64).split('').map(function (c) {
           return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
         }).join(''));
-        
+
         const userData = JSON.parse(jsonPayload);
-        
+
         // Store user data in localStorage
         localStorage.setItem('token', token);
-        localStorage.setItem('role', userData.role);
         localStorage.setItem('username', userData.username);
-        
+
         // Start status ping
         startStatusPing();
-        
+
         // Redirect to dashboard
         navigate('/dashboard');
       } catch (e) {
@@ -357,7 +367,7 @@ useEffect(() => {
   const handleGoogleLogin = async () => {
     try {
       // Redirect to the new Google auth endpoint
-      window.location.href = 'http://localhost:8000/google-auth';
+      window.location.href = `${API_BASE}/google-auth`;
     } catch (error) {
       setErrors(prev => ({ ...prev, general: 'Google login failed. Please try again.' }));
     }
@@ -372,21 +382,20 @@ useEffect(() => {
     const email = urlParams.get('email');
     const role = urlParams.get('role');
     const error = urlParams.get('error');
-    
+
     if (token) {
       try {
         // Store user data directly from URL params
         localStorage.setItem('token', token);
-        localStorage.setItem('role', role);
         localStorage.setItem('username', username);
         localStorage.setItem('email', email);
-        
+
         // Start status ping
         startStatusPing();
-        
+
         // Clear URL parameters
         window.history.replaceState({}, document.title, window.location.pathname);
-        
+
         // Redirect to dashboard
         navigate('/dashboard');
       } catch (e) {
@@ -411,7 +420,7 @@ useEffect(() => {
           <p className="text-gray-600 mb-4">Tài khoản của bạn đã được tạo thành công. Chuyển hướng đến trang đăng nhập...</p>
           <div className="w-full h-20 flex items-center justify-center">
             <div className="w-full max-w-xs">
-              <Lottie 
+              <Lottie
                 animationData={loadingAnimation}
                 loop={true}
                 className="w-full"
@@ -430,7 +439,7 @@ useEffect(() => {
           {/* Left side with animation */}
           <div className="bg-gradient-to-br from-white via-lime-50 to-lime-100 md:w-1/2 flex items-center justify-center relative p-0">
             <div className="w-full h-full">
-              <Lottie 
+              <Lottie
                 animationData={animationData}
                 loop={true}
                 zIndex={1}
@@ -461,9 +470,8 @@ useEffect(() => {
                       name="username"
                       value={formData.username}
                       onChange={handleChange}
-                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-lime-500 focus:border-lime-500 outline-none transition-all ${
-                        errors.username ? 'border-red-500' : 'border-gray-300'
-                      }`}
+                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-lime-500 focus:border-lime-500 outline-none transition-all ${errors.username ? 'border-red-500' : 'border-gray-300'
+                        }`}
                     />
                     {errors.username && (
                       <p className="text-red-500 text-sm mt-1">{errors.username}</p>
@@ -480,9 +488,8 @@ useEffect(() => {
                         value={formData.email}
                         onChange={handleChange}
                         onBlur={verifyEmail}
-                        className={`w-full px-4 py-3 pr-10 border rounded-lg focus:ring-2 focus:ring-lime-500 focus:border-lime-500 outline-none transition-all ${
-                          errors.email ? 'border-red-500' : isEmailValid ? 'border-green-500' : 'border-gray-300'
-                        }`}
+                        className={`w-full px-4 py-3 pr-10 border rounded-lg focus:ring-2 focus:ring-lime-500 focus:border-lime-500 outline-none transition-all ${errors.email ? 'border-red-500' : isEmailValid ? 'border-green-500' : 'border-gray-300'
+                          }`}
                       />
                       {isVerifyingEmail ? (
                         <div className="absolute right-3 top-3">
@@ -511,20 +518,20 @@ useEffect(() => {
                   <div className="space-y-1">
                     <div className="flex justify-between items-center mb-1">
                       <label className="block text-gray-500 font-bold">Mật khẩu</label>
-                      <button 
-                        type="button" 
+                      <button
+                        type="button"
                         onClick={() => setShowPasswordGenerator(!showPasswordGenerator)}
                         className="text-xs text-lime-600 hover:text-lime-700"
                       >
                         {showPasswordGenerator ? 'Ẩn gợi ý' : 'Gợi ý mật khẩu mạnh'}
                       </button>
                     </div>
-                    
+
                     {showPasswordGenerator && (
                       <div className="bg-lime-50 p-3 rounded-lg mb-3">
                         <p className="text-sm text-gray-600 mb-2">Tạo mật khẩu mạnh với các ký tự khác nhau để tăng độ an toàn.</p>
-                        <button 
-                          type="button" 
+                        <button
+                          type="button"
                           onClick={generateStrongPassword}
                           className="bg-lime-500 text-white text-sm py-1.5 px-3 rounded hover:bg-lime-600"
                         >
@@ -532,18 +539,17 @@ useEffect(() => {
                         </button>
                       </div>
                     )}
-                    
+
                     <div className="relative">
                       <input
                         type={passwordVisible ? "text" : "password"}
                         name="password"
                         value={formData.password}
                         onChange={handleChange}
-                        className={`w-full px-4 py-3 pr-12 border rounded-lg focus:ring-2 focus:ring-lime-500 focus:border-lime-500 outline-none transition-all ${
-                          errors.password ? 'border-red-500' : 'border-gray-300'
-                        }`}
+                        className={`w-full px-4 py-3 pr-12 border rounded-lg focus:ring-2 focus:ring-lime-500 focus:border-lime-500 outline-none transition-all ${errors.password ? 'border-red-500' : 'border-gray-300'
+                          }`}
                       />
-                      
+
                       <button
                         type="button"
                         onClick={() => setPasswordVisible(!passwordVisible)}
@@ -560,13 +566,13 @@ useEffect(() => {
                           </svg>
                         )}
                       </button>
-                      
+
                       {formData.password && (
                         <div className="absolute right-12 top-3">
                           <div className="flex items-center space-x-2">
                             <div className="h-2 w-20 bg-gray-200 rounded-full overflow-hidden">
-                              <div 
-                                className={`h-full ${getStrengthColor()}`} 
+                              <div
+                                className={`h-full ${getStrengthColor()}`}
                                 style={{ width: `${passwordStrength}%` }}
                               ></div>
                             </div>
@@ -575,11 +581,11 @@ useEffect(() => {
                         </div>
                       )}
                     </div>
-                    
+
                     {errors.password && (
                       <p className="text-red-500 text-sm mt-1">{errors.password}</p>
                     )}
-                    
+
                     {formData.password && (
                       <ul className="mt-2 text-xs text-gray-500 space-y-1">
                         <li className={`flex items-center ${formData.password.length >= 6 ? 'text-green-600' : ''}`}>
@@ -611,9 +617,8 @@ useEffect(() => {
                         name="confirmPassword"
                         value={formData.confirmPassword}
                         onChange={handleChange}
-                        className={`w-full px-4 py-3 pr-12 border rounded-lg focus:ring-2 focus:ring-lime-500 focus:border-lime-500 outline-none transition-all ${
-                          errors.confirmPassword ? 'border-red-500' : 'border-gray-300'
-                        }`}
+                        className={`w-full px-4 py-3 pr-12 border rounded-lg focus:ring-2 focus:ring-lime-500 focus:border-lime-500 outline-none transition-all ${errors.confirmPassword ? 'border-red-500' : 'border-gray-300'
+                          }`}
                       />
                       <button
                         type="button"
@@ -641,13 +646,12 @@ useEffect(() => {
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className={`w-full py-3 px-4 mt-4 bg-lime-500 text-white rounded-lg hover:bg-lime-600 transition-colors font-medium ${
-                      isLoading ? 'opacity-70 cursor-not-allowed' : ''
-                    }`}
+                    className={`w-full py-3 px-4 mt-4 bg-lime-500 text-white rounded-lg hover:bg-lime-600 transition-colors font-medium ${isLoading ? 'opacity-70 cursor-not-allowed' : ''
+                      }`}
                   >
                     {isLoading ? 'Đang tạo tài khoản...' : 'Đăng ký'}
                   </button>
-                  
+
                   {/* Add Google login button */}
                   <div className="mt-6 relative">
                     <div className="absolute inset-0 flex items-center">
@@ -657,7 +661,7 @@ useEffect(() => {
                       <span className="px-2 bg-white text-gray-500">Hoặc tiếp tục với</span>
                     </div>
                   </div>
-                  
+
                   <button
                     type="button"
                     onClick={handleGoogleLogin}
@@ -665,15 +669,15 @@ useEffect(() => {
                   >
                     <svg className="h-5 w-5 mr-2" viewBox="0 0 24 24" width="24" height="24">
                       <g transform="matrix(1, 0, 0, 1, 27.009001, -39.238998)">
-                        <path fill="#4285F4" d="M -3.264 51.509 C -3.264 50.719 -3.334 49.969 -3.454 49.239 L -14.754 49.239 L -14.754 53.749 L -8.284 53.749 C -8.574 55.229 -9.424 56.479 -10.684 57.329 L -10.684 60.329 L -6.824 60.329 C -4.564 58.239 -3.264 55.159 -3.264 51.509 Z"/>
-                        <path fill="#34A853" d="M -14.754 63.239 C -11.514 63.239 -8.804 62.159 -6.824 60.329 L -10.684 57.329 C -11.764 58.049 -13.134 58.489 -14.754 58.489 C -17.884 58.489 -20.534 56.379 -21.484 53.529 L -25.464 53.529 L -25.464 56.619 C -23.494 60.539 -19.444 63.239 -14.754 63.239 Z"/>
-                        <path fill="#FBBC05" d="M -21.484 53.529 C -21.734 52.809 -21.864 52.039 -21.864 51.239 C -21.864 50.439 -21.724 49.669 -21.484 48.949 L -21.484 45.859 L -25.464 45.859 C -26.284 47.479 -26.754 49.299 -26.754 51.239 C -26.754 53.179 -26.284 54.999 -25.464 56.619 L -21.484 53.529 Z"/>
-                        <path fill="#EA4335" d="M -14.754 43.989 C -12.984 43.989 -11.404 44.599 -10.154 45.789 L -6.734 42.369 C -8.804 40.429 -11.514 39.239 -14.754 39.239 C -19.444 39.239 -23.494 41.939 -25.464 45.859 L -21.484 48.949 C -20.534 46.099 -17.884 43.989 -14.754 43.989 Z"/>
+                        <path fill="#4285F4" d="M -3.264 51.509 C -3.264 50.719 -3.334 49.969 -3.454 49.239 L -14.754 49.239 L -14.754 53.749 L -8.284 53.749 C -8.574 55.229 -9.424 56.479 -10.684 57.329 L -10.684 60.329 L -6.824 60.329 C -4.564 58.239 -3.264 55.159 -3.264 51.509 Z" />
+                        <path fill="#34A853" d="M -14.754 63.239 C -11.514 63.239 -8.804 62.159 -6.824 60.329 L -10.684 57.329 C -11.764 58.049 -13.134 58.489 -14.754 58.489 C -17.884 58.489 -20.534 56.379 -21.484 53.529 L -25.464 53.529 L -25.464 56.619 C -23.494 60.539 -19.444 63.239 -14.754 63.239 Z" />
+                        <path fill="#FBBC05" d="M -21.484 53.529 C -21.734 52.809 -21.864 52.039 -21.864 51.239 C -21.864 50.439 -21.724 49.669 -21.484 48.949 L -21.484 45.859 L -25.464 45.859 C -26.284 47.479 -26.754 49.299 -26.754 51.239 C -26.754 53.179 -26.284 54.999 -25.464 56.619 L -21.484 53.529 Z" />
+                        <path fill="#EA4335" d="M -14.754 43.989 C -12.984 43.989 -11.404 44.599 -10.154 45.789 L -6.734 42.369 C -8.804 40.429 -11.514 39.239 -14.754 39.239 C -19.444 39.239 -23.494 41.939 -25.464 45.859 L -21.484 48.949 C -20.534 46.099 -17.884 43.989 -14.754 43.989 Z" />
                       </g>
                     </svg>
                     Đăng ký với Google
                   </button>
-                  
+
                   <p className="mt-6 text-center text-sm text-gray-600">
                     Đã có tài khoản? <Link to="/login" className="text-lime-500 hover:text-lime-600 font-medium">Đăng nhập</Link>
                   </p>

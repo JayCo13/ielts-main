@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { Play, Clock, BarChart, Search, ChevronLeft, ChevronRight, User, PhoneCall } from 'lucide-react';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
+import { Play, Search, ChevronLeft, ChevronRight, Lock } from 'lucide-react';
 import Navbar from './Navbar';
-import { checkExamAccess } from '../utils/examAccess';
+import { API_BASE } from '../config/api';
+const toAbsoluteUrl = (u) => (u && u.startsWith('/')) ? `${API_BASE}${u}` : u;
 
 const Speaking_Fe = () => {
     const navigate = useNavigate();
@@ -10,8 +11,7 @@ const Speaking_Fe = () => {
         role: localStorage.getItem('role'),
         isVIP: false
     });
-    const [examHistory, setExamHistory] = useState([]);
-    const [topics, setTopics] = useState([]);
+    const [materials, setMaterials] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
@@ -19,8 +19,10 @@ const Speaking_Fe = () => {
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
     const [username, setUsername] = useState('');
     const dropdownRef = useRef(null);
-    const [sortOrder, setSortOrder] = useState('latest');
     const topicsPerPage = 6;
+    const location = useLocation();
+    const params = new URLSearchParams(location.search);
+    const selectedPart = params.get('part') || 'part1';
 
     useEffect(() => {
         const handleScroll = () => {
@@ -56,50 +58,28 @@ const Speaking_Fe = () => {
             }
 
             try {
-                const [topicsResponse, vipStatusResponse, historyResponse] = await Promise.all([
-                    fetch('http://localhost:8000/student/speaking/topics', {
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    }),
-                    fetch('http://localhost:8000/customer/vip/subscription/status', {
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    }),
-                    fetch('http://localhost:8000/student/my-exam-history', {
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    })
-                ]);
+                // Always fetch Part 1 only (Speaking Forecast)
+                const materialsResponse = await fetch(`${API_BASE}/student/speaking/materials?part=part1`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
 
-                if (topicsResponse.ok) {
-                    const data = await topicsResponse.json();
-                    const formattedTopics = data.map(topic => ({
-                        ...topic,
-                        id: topic.topic_id,
-                        title: topic.title || 'Untitled Topic',
-                        description: topic.description || 'No description available',
-                        questions: topic.speaking_questions || [],
-                      
-                        questionCount: topic.speaking_questions ? topic.speaking_questions.length : 0,
-                        created_at: topic.created_at || new Date().toISOString()
+                if (materialsResponse.ok) {
+                    const data = await materialsResponse.json();
+                    const formatted = data.map(m => ({
+                        id: m.material_id,
+                        title: m.title || 'Untitled',
+                        part_type: m.part_type,
+                        pdf_url: toAbsoluteUrl(m.pdf_url),
+                        created_at: m.created_at || new Date().toISOString(),
+                        has_access: m.has_access
                     }));
-                    setTopics(formattedTopics);
-                } else if (topicsResponse.status === 401) {
+                    setMaterials(formatted);
+                } else if (materialsResponse.status === 401) {
                     navigate('/login');
-                }
-
-                if (vipStatusResponse.ok) {
-                    const vipData = await vipStatusResponse.json();
-                    setUserStatus(prev => ({
-                        ...prev,
-                        isVIP: vipData.is_subscribed
-                    }));
-                }
-
-                if (historyResponse.ok) {
-                    const historyData = await historyResponse.json();
-                    setExamHistory(historyData);
                 }
             } catch (error) {
                 console.error('Error fetching data:', error);
-                setTopics([]);
+                setMaterials([]);
             } finally {
                 setLoading(false);
             }
@@ -107,74 +87,65 @@ const Speaking_Fe = () => {
 
         fetchData();
     }, [navigate]);
+    const [sortOrder, setSortOrder] = useState('alphabet');
 
-    const filteredTopics = topics
-        .filter(topic => topic.title.toLowerCase().includes(searchQuery.toLowerCase()))
+    const filteredTopics = materials
+        .filter(test => test.has_access)
+        .filter(test => test.title.toLowerCase().includes(searchQuery.toLowerCase()))
         .sort((a, b) => {
-            if (sortOrder === 'latest') {
-                return new Date(b.created_at) - new Date(a.created_at);
-            } else {
-                return new Date(a.created_at) - new Date(b.created_at);
+            switch (sortOrder) {
+                case 'alphabet':
+                    return a.title.localeCompare(b.title);
+                case 'latest':
+                    return new Date(b.created_at) - new Date(a.created_at);
+                case 'oldest':
+                    return new Date(a.created_at) - new Date(b.created_at);
+                default:
+                    return a.title.localeCompare(b.title);
             }
         });
 
     const indexOfLastTopic = currentPage * topicsPerPage;
     const indexOfFirstTopic = indexOfLastTopic - topicsPerPage;
     const currentTopics = filteredTopics.slice(indexOfFirstTopic, indexOfLastTopic);
-    const totalPages = Math.ceil(filteredTopics.length / topicsPerPage);
+    const totalPages = Math.max(1, Math.ceil(filteredTopics.length / topicsPerPage));
 
-    const renderTopicCard = (topic) => {
-        const { canAccess, message } = checkExamAccess(
-            userStatus.role,
-            userStatus.isVIP,
-            topic.exam_access_type,
-            examHistory
-        );
-
-        return (
-            <div key={topic.id} className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300 border border-gray-100">
-                <div className="p-8">
-                    <h3 className="text-2xl font-bold text-gray-800 mb-3">
-                        <span className="text-lime-600 font-normal italic mr-2">Topic:</span>
-                        <span className="text-gray-700">{topic.title}</span>
-                    </h3>
-                    <div className="space-y-4 mb-8">
-                        <div className="flex items-center text-gray-600 bg-gray-50 py-2 px-3 rounded-lg">
-                            <BarChart className="w-5 h-5 mr-3 text-lime-600" />
-                            <span className="font-medium">{topic.questionCount} questions</span>
-                        </div>
+    const renderTopicCard = (m) => (
+        <div key={m.id} className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300 border border-gray-100">
+            <div className="p-8">
+                <h3 className="text-2xl font-bold text-gray-800 mb-3">
+                    <span className="text-[#0096b1] font-normal italic mr-2">Speaking:</span>
+                    <span className="text-gray-700">{m.title}</span>
+                </h3>
+                <div className="space-y-4 mb-8">
+                    <div className="flex items-center text-gray-600 bg-gray-50 py-2 px-3 rounded-lg">
+                        <span className="font-medium">Speaking Forecast</span>
                     </div>
-
-                    {!canAccess ? (
-                        <div className="text-center">
-                            <p className="text-red-500 text-sm mb-2">{message}</p>
-                            {userStatus.role === 'customer' && !userStatus.isVIP && (
-                                <Link
-                                    to="/vip-packages"
-                                    className="inline-block px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors"
-                                >
-                                    Upgrade to VIP
-                                </Link>
-                            )}
-                        </div>
-                    ) : (
-                        <button
-                            onClick={() => navigate(`/speaking_test_room`, { 
-                                state: { 
-                                    topicId: topic.id,
-                                    title: topic.title
-                                } 
-                            })}
-                            className="w-full flex items-center justify-center space-x-2 bg-lime-500 text-white px-6 py-3 rounded-lg hover:bg-lime-600 transition-all duration-300 font-semibold shadow-md hover:shadow-lg"
-                        >
-                            <Play className="w-5 h-5" />
-                            <span>Start Practice</span>
-                        </button>
-                    )}
                 </div>
+                <button
+                    disabled={!m.has_access}
+                    onClick={() => {
+                        if (m.has_access) {
+                            navigate(`/speaking_test_room`, {
+                                state: {
+                                    title: m.title,
+                                    pdfUrl: m.pdf_url,
+                                    partType: m.part_type
+                                }
+                            });
+                        }
+                    }}
+                    className={`w-full flex items-center justify-center space-x-2 px-6 py-3 rounded-lg transition-all duration-300 font-semibold shadow-md ${m.has_access
+                        ? 'bg-[#0096b1] text-white hover:bg-[#eb7e37] hover:shadow-lg'
+                        : 'bg-gray-400 text-gray-100 cursor-not-allowed'
+                        }`}
+                >
+                    {m.has_access ? <Play className="w-5 h-5" /> : <Lock className="w-5 h-5" />}
+                    <span>{m.has_access ? 'View PDF' : 'Locked'}</span>
+                </button>
             </div>
-        );
-    };
+        </div>
+    );
 
     if (loading) {
         return (
@@ -191,9 +162,9 @@ const Speaking_Fe = () => {
             <div className="max-w-7xl mx-auto px-4 py-4">
                 <nav className="flex" aria-label="Breadcrumb">
                     <ol className="flex items-center space-x-2">
-                        <li><Link to="/" className="text-gray-500 hover:text-lime-500">Home</Link></li>
+                        <li><Link to="/" className="text-[#0096b1] hover:text-lime-500">Home</Link></li>
                         <li><span className="text-gray-400 mx-2">/</span></li>
-                        <li><span className="text-lime-500 font-medium">Speaking Topics</span></li>
+                        <li><span className="text-[#0096b1] font-medium">Speaking Forecast</span></li>
                     </ol>
                 </nav>
             </div>
@@ -215,13 +186,18 @@ const Speaking_Fe = () => {
                         value={sortOrder}
                         onChange={(e) => setSortOrder(e.target.value)}
                     >
-                        <option value="latest">Latest</option>
-                        <option value="oldest">Oldest</option>
+                        <option value="alphabet">Theo Alphabet</option>
+                        <option value="latest">Mới nhất</option>
+                        <option value="oldest">Cũ nhất</option>
                     </select>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {currentTopics.map(topic => renderTopicCard(topic))}
+                    {currentTopics.length === 0 ? (
+                        <div className="col-span-full text-center text-lime-600 py-12">Chưa có dữ liệu để hiển thị</div>
+                    ) : (
+                        currentTopics.map(topic => renderTopicCard(topic))
+                    )}
                 </div>
 
                 <div className="flex justify-center items-center space-x-4 mt-5">
@@ -230,7 +206,7 @@ const Speaking_Fe = () => {
                         disabled={currentPage === 1}
                         className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-50"
                     >
-                        <ChevronLeft className="w-5 h-5" strokeWidth={3}/>
+                        <ChevronLeft className="w-5 h-5" strokeWidth={3} />
                     </button>
                     <span className="text-gray-600 font-bold">
                         Page {currentPage} of {totalPages}
@@ -240,7 +216,7 @@ const Speaking_Fe = () => {
                         disabled={currentPage === totalPages}
                         className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-50"
                     >
-                        <ChevronRight className="w-5 h-5 " strokeWidth={3}/>
+                        <ChevronRight className="w-5 h-5 " strokeWidth={3} />
                     </button>
                 </div>
             </div>

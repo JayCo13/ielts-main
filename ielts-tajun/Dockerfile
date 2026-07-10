@@ -10,6 +10,12 @@ COPY package*.json ./
 RUN npm install --legacy-peer-deps --force
 
 COPY . .
+
+# API base URL baked into the CRA bundle at build time.
+# docker-compose passes this as a build arg on the VPS; defaults to localhost for bare builds.
+ARG REACT_APP_API_BASE_URL=http://localhost:8000
+ENV REACT_APP_API_BASE_URL=$REACT_APP_API_BASE_URL
+
 RUN npm run build
 
 FROM nginx:alpine as production

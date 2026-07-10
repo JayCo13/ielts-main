@@ -1,12 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Sidebar from '../partials/Sidebar';
 import Header from '../partials/Header';
-import { UserCircle, RefreshCw, Users, Package, DollarSign, TrendingUp, Clock, AlertCircle, BookOpen, PenTool } from 'lucide-react';
+import { UserCircle, RefreshCw, Users, Package, DollarSign, TrendingUp, Clock, AlertCircle, BookOpen, PenTool, Calendar, BarChart3 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from 'recharts';
+import { API_BASE } from '../config/api';
 
 function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [exams, setExams] = useState([]); 
+  const navigate = useNavigate();
+  const [exams, setExams] = useState([]);
   const [hasNewNotification, setHasNewNotification] = useState(false);
   const notificationSound = useRef(new Audio('/sounds/notification.mp3'));
   const originalTitle = useRef(document.title);
@@ -35,19 +39,25 @@ function Dashboard() {
   });
   const [revenueStats, setRevenueStats] = useState({
     total_revenue: 0,
-    monthly_revenue: []
+    today_revenue: 0,
+    month_revenue: 0,
+    year_revenue: 0,
+    weekly_revenue: [],
+    monthly_revenue: [],
+    yearly_revenue: []
   });
+  const [revenueTab, setRevenueTab] = useState('weekly');
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const checkForNewData = async () => {
     try {
-      const response = await fetch('http://localhost:8000/admin/dashboard/notifications', {
+      const response = await fetch(`${API_BASE}/admin/dashboard/notifications`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`
         }
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         if (data.hasNewNotifications) {
@@ -57,7 +67,7 @@ function Dashboard() {
             notificationSound.current.play().catch(err => console.log('Audio playback failed:', err));
           }
           document.title = '(1) Thông báo mới - IELTS Practice';
-          
+
           // Browser notification
           if (Notification.permission === 'granted') {
             new Notification('Hoạt động mới', {
@@ -66,7 +76,7 @@ function Dashboard() {
               silent: true // Don't play the default notification sound
             });
           }
-          
+
           // Show toast notification
           toast.success(data.message || 'Bạn có thông báo mới', {
             duration: 5000,
@@ -100,62 +110,62 @@ function Dashboard() {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-     
+
 
       // In fetchDashboardData function, add:
-      const examsResponse = await fetch('http://localhost:8000/admin/dashboard/exams', {
+      const examsResponse = await fetch(`${API_BASE}/admin/dashboard/exams`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`
         }
       });
-      
+
       if (!examsResponse.ok) throw new Error('Không thể tải dữ liệu bài thi');
       const examsData = await examsResponse.json();
       setExams(examsData);
       // Fetch statistics
-      const statsResponse = await fetch('http://localhost:8000/admin/dashboard/statistics', {
+      const statsResponse = await fetch(`${API_BASE}/admin/dashboard/statistics`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`
         }
       });
-      
+
       if (!statsResponse.ok) throw new Error('Không thể tải dữ liệu thống kê');
       const statsData = await statsResponse.json();
       setStatistics(statsData);
-      
+
       // Fetch package statistics
-      const packagesResponse = await fetch('http://localhost:8000/admin/vip/dashboard/packages', {
+      const packagesResponse = await fetch(`${API_BASE}/admin/vip/dashboard/packages`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`
         }
       });
-      
+
       if (!packagesResponse.ok) throw new Error('Không thể tải dữ liệu thống kê gói');
       const packagesData = await packagesResponse.json();
       setPackageStats(packagesData);
 
       // Fetch revenue statistics
-      const revenueResponse = await fetch('http://localhost:8000/admin/vip/dashboard/revenue', {
+      const revenueResponse = await fetch(`${API_BASE}/admin/vip/dashboard/revenue`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`
         }
       });
-      
+
       if (!revenueResponse.ok) throw new Error('Không thể tải dữ liệu doanh thu');
       const revenueData = await revenueResponse.json();
       setRevenueStats(revenueData);
-      
+
       // Fetch students
-      const studentsResponse = await fetch('http://localhost:8000/admin/dashboard/students', {
+      const studentsResponse = await fetch(`${API_BASE}/admin/dashboard/students`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`
         }
       });
-      
+
       if (!studentsResponse.ok) throw new Error('Không thể tải dữ liệu học viên');
       const studentsData = await studentsResponse.json();
       setStudents(studentsData);
-      
+
       setLoading(false);
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
@@ -180,9 +190,9 @@ function Dashboard() {
 
   // Format currency
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('vi-VN', {
       style: 'currency',
-      currency: 'USD'
+      currency: 'VND'
     }).format(amount);
   };
 
@@ -191,8 +201,8 @@ function Dashboard() {
       <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
       <div className="relative flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
-        <Header  sidebarOpen={sidebarOpen} 
-          setSidebarOpen={setSidebarOpen} 
+        <Header sidebarOpen={sidebarOpen}
+          setSidebarOpen={setSidebarOpen}
           hasNewNotification={hasNewNotification}
           setHasNewNotification={setHasNewNotification} />
 
@@ -200,16 +210,16 @@ function Dashboard() {
           <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-9xl mx-auto">
             {/* Dashboard Header */}
             <div className="sm:flex sm:justify-between sm:items-center mb-8">
-              <div className="mb-4 sm:mb-0">
-                <h1 className="text-2xl md:text-3xl text-gray-800 dark:text-gray-100 font-bold">Tổng quan Bảng điều khiển</h1>
-                <p className="mt-1 text-sm text-gray-500">Theo dõi hiệu suất và số liệu của nền tảng</p>
+              <div className="mb-4 sm:mb-0 space-y-1">
+                <h1 className="text-2xl md:text-3xl text-gray-900 dark:text-white font-bold tracking-tight">Tổng quan Bảng điều khiển</h1>
+                <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Theo dõi hiệu suất và số liệu của nền tảng</p>
               </div>
               <button
                 onClick={fetchDashboardData}
-                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-violet-600 hover:bg-violet-700"
+                className="inline-flex items-center px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm text-sm font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Làm mới dữ liệu
+                <RefreshCw className="h-4 w-4 mr-2 text-gray-500" />
+                Làm mới
               </button>
             </div>
 
@@ -226,56 +236,130 @@ function Dashboard() {
               </div>
             ) : (
               <div className="grid grid-cols-12 gap-6">
-                {/* Key Metrics Row */}
-                <div className="col-span-12 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-                  {/* Revenue Card */}
-                  <div className="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-5">
-                    <div className="flex items-center">
-                      <DollarSign className="w-12 h-12 text-green-500" />
-                      <div className="ml-4">
-                        <div className="text-3xl font-bold text-gray-800 dark:text-white">
-                          {formatCurrency(revenueStats.total_revenue)}
-                        </div>
-                        <div className="text-sm text-gray-500">Tổng doanh thu</div>
+                {/* Revenue Section - Full Width */}
+                <div className="col-span-12 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 shadow-sm rounded-2xl overflow-hidden">
+                  <div className="px-6 py-5 border-b border-gray-100 dark:border-gray-700 flex flex-wrap justify-between items-center gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 bg-emerald-50 dark:bg-emerald-900/30 rounded-xl">
+                        <DollarSign className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
                       </div>
+                      <h2 className="text-lg font-bold text-gray-900 dark:text-white">Doanh thu</h2>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex bg-gray-100 dark:bg-gray-700 rounded-xl p-1 gap-1">
+                        {[{ key: 'weekly', label: 'Tuần' }, { key: 'monthly', label: 'Tháng' }, { key: 'yearly', label: 'Năm' }].map(tab => (
+                          <button
+                            key={tab.key}
+                            onClick={() => setRevenueTab(tab.key)}
+                            className={`px-4 py-1.5 text-sm font-semibold rounded-lg transition-all ${revenueTab === tab.key
+                              ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+                              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'
+                              }`}
+                          >
+                            {tab.label}
+                          </button>
+                        ))}
+                      </div>
+                      <button
+                        onClick={() => navigate('/revenue-analytics')}
+                        className="px-4 py-1.5 text-sm font-semibold rounded-xl bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 border border-emerald-200 dark:border-emerald-800 transition-all flex items-center gap-1.5"
+                      >
+                        <BarChart3 className="w-3.5 h-3.5" />
+                        Xem chi tiết
+                      </button>
                     </div>
                   </div>
-
-                  {/* Students Card */}
-                  <div className="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-5">
-                    <div className="flex items-center">
-                      <Users className="w-12 h-12 text-blue-500" />
-                      <div className="ml-4">
-                        <div className="text-3xl font-bold text-gray-800 dark:text-white">
-                          {statistics.active_students}/{statistics.total_students}
+                  {/* Revenue Summary Cards */}
+                  <div className="grid grid-cols-2 lg:grid-cols-4 border-b border-gray-100 dark:border-gray-700">
+                    {[
+                      { label: 'Hôm nay', value: revenueStats.today_revenue || 0, color: 'text-blue-600' },
+                      { label: 'Tháng này', value: revenueStats.month_revenue || 0, color: 'text-violet-600' },
+                      { label: 'Năm nay', value: revenueStats.year_revenue || 0, color: 'text-amber-600' },
+                      { label: 'Tổng cộng', value: revenueStats.total_revenue || 0, color: 'text-emerald-600' },
+                    ].map((item, i) => (
+                      <div key={i} className={`p-5 lg:p-6 ${i < 3 ? 'border-r border-gray-100 dark:border-gray-700' : ''} ${i < 2 ? 'border-b lg:border-b-0 border-gray-100 dark:border-gray-700' : i === 2 ? 'border-b lg:border-b-0 border-gray-100 dark:border-gray-700' : ''}`}>
+                        <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">{item.label}</div>
+                        <div className={`text-lg lg:text-2xl font-extrabold ${item.color} dark:opacity-90 break-words`}>
+                          {formatCurrency(item.value)}
                         </div>
-                        <div className="text-sm text-gray-500">Học viên hoạt động/Tổng số</div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Chart */}
+                  <div className="p-4 lg:p-6">
+                    <ResponsiveContainer width="100%" height={300}>
+                      <AreaChart data={
+                        revenueTab === 'weekly'
+                          ? (revenueStats.weekly_revenue || []).map(d => ({ name: d.week_start.slice(5), revenue: d.revenue }))
+                          : revenueTab === 'monthly'
+                            ? (revenueStats.monthly_revenue || []).map(d => ({ name: `T${d.month}`, revenue: d.revenue }))
+                            : (revenueStats.yearly_revenue || []).map(d => ({ name: `${d.year}`, revenue: d.revenue }))
+                      } margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+                        <defs>
+                          <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                            <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#9ca3af' }} />
+                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#9ca3af' }} tickFormatter={(v) => v >= 1000000 ? `${(v / 1000000).toFixed(1)}M` : v >= 1000 ? `${(v / 1000).toFixed(0)}K` : v} />
+                        <Tooltip
+                          contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '12px', color: '#fff', fontSize: '13px' }}
+                          labelStyle={{ color: '#9ca3af', marginBottom: '4px' }}
+                          formatter={(value) => [formatCurrency(value), 'Doanh thu']}
+                        />
+                        <Area type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={2.5} fill="url(#revenueGradient)" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                {/* Key Metrics Row - 3 remaining cards */}
+                <div className="col-span-12 grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6">
+                  {/* Students Card */}
+                  <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 shadow-sm rounded-2xl p-5 lg:p-6 transition-all hover:shadow-md">
+                    <div className="flex items-center gap-3 lg:gap-4">
+                      <div className="p-2.5 lg:p-3 bg-blue-50 dark:bg-blue-900/30 rounded-xl shrink-0">
+                        <Users className="w-6 h-6 lg:w-7 lg:h-7 text-blue-600 dark:text-blue-400" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-0.5 lg:mb-1 truncate" title="Học viên (HĐ/Tổng)">Học viên (HĐ/Tổng)</div>
+                        <div className="text-xl lg:text-2xl font-extrabold text-gray-900 dark:text-white tracking-tight flex items-baseline truncate">
+                          <span className="text-blue-600">{statistics.active_students}</span>
+                          <span className="text-gray-400 text-lg lg:text-xl font-medium mx-1">/</span>
+                          <span>{statistics.total_students}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
 
                   {/* Exam Activity Card */}
-                  <div className="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-5">
-                    <div className="flex items-center">
-                      <BookOpen className="w-12 h-12 text-violet-500" />
-                      <div className="ml-4">
-                        <div className="text-3xl font-bold text-gray-800 dark:text-white">
+                  <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 shadow-sm rounded-2xl p-5 lg:p-6 transition-all hover:shadow-md">
+                    <div className="flex items-center gap-3 lg:gap-4">
+                      <div className="p-2.5 lg:p-3 bg-violet-50 dark:bg-violet-900/30 rounded-xl shrink-0">
+                        <BookOpen className="w-6 h-6 lg:w-7 lg:h-7 text-violet-600 dark:text-violet-400" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-0.5 lg:mb-1 truncate">Bài thi đã làm</div>
+                        <div className="text-xl lg:text-2xl font-extrabold text-gray-900 dark:text-white tracking-tight truncate">
                           {statistics.total_exams}
                         </div>
-                        <div className="text-sm text-gray-500">Tổng số bài thi đã làm</div>
                       </div>
                     </div>
                   </div>
 
                   {/* Average Score Card */}
-                  <div className="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-5">
-                    <div className="flex items-center">
-                      <PenTool className="w-12 h-12 text-amber-500" />
-                      <div className="ml-4">
-                        <div className="text-3xl font-bold text-gray-800 dark:text-white">
+                  <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 shadow-sm rounded-2xl p-5 lg:p-6 transition-all hover:shadow-md">
+                    <div className="flex items-center gap-3 lg:gap-4">
+                      <div className="p-2.5 lg:p-3 bg-amber-50 dark:bg-amber-900/30 rounded-xl shrink-0">
+                        <PenTool className="w-6 h-6 lg:w-7 lg:h-7 text-amber-600 dark:text-amber-400" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-0.5 lg:mb-1 truncate">Lần thử bài thi</div>
+                        <div className="text-xl lg:text-2xl font-extrabold text-gray-900 dark:text-white tracking-tight truncate">
                           {statistics.total_attempts}
                         </div>
-                        <div className="text-sm text-gray-500">Tổng số lần thử</div>
                       </div>
                     </div>
                   </div>
@@ -284,39 +368,39 @@ function Dashboard() {
                 {/* Main Content Area */}
                 <div className="col-span-12 xl:col-span-8 space-y-6">
                   {/* Student Performance */}
-                  <div className="bg-white dark:bg-gray-800 shadow-lg rounded-lg">
-                    <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
-                      <h2 className="font-semibold text-gray-800 dark:text-white">Kết quả gần đây</h2>
+                  <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 shadow-sm rounded-2xl overflow-hidden">
+                    <div className="px-6 py-5 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
+                      <h2 className="text-lg font-bold text-gray-900 dark:text-white">Kết quả gần đây</h2>
                     </div>
-                    <div className="p-4">
+                    <div className="overflow-x-auto">
                       <table className="w-full">
-                        <thead className="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">
+                        <thead className="bg-gray-50/50 dark:bg-gray-800/50 text-xs font-semibold uppercase text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
                           <tr>
-                            <th className="py-2 text-left">Học viên</th>
-                            <th className="py-2 text-left">Bài thi</th>
-                            <th className="py-2 text-center">Điểm</th>
-                            <th className="py-2 text-right">Ngày hoàn thành</th>
+                            <th className="px-6 py-4 text-left">Học viên</th>
+                            <th className="px-6 py-4 text-left">Bài thi</th>
+                            <th className="px-6 py-4 text-center">Điểm</th>
+                            <th className="px-6 py-4 text-right">Ngày hoàn thành</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                           {statistics.recent_results.map((result) => (
-                            <tr key={result.result_id}>
-                              <td className="py-2">
-                                <div className="font-medium text-gray-800 dark:text-white">
+                            <tr key={result.result_id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors">
+                              <td className="px-6 py-4">
+                                <div className="font-semibold text-gray-900 dark:text-white">
                                   {result.student_name}
                                 </div>
                               </td>
-                              <td className="py-2">
-                                <div className="text-sm text-gray-600 dark:text-gray-400">
+                              <td className="px-6 py-4">
+                                <div className="text-sm font-medium text-gray-600 dark:text-gray-400">
                                   {result.exam_title}
                                 </div>
                               </td>
-                              <td className="py-2 text-center">
-                                <span className="text-blue-600 dark:text-blue-400 font-medium">
+                              <td className="px-6 py-4 text-center">
+                                <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-sm font-bold bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
                                   {result.score}
                                 </span>
                               </td>
-                              <td className="py-2 text-right text-sm text-gray-500">
+                              <td className="px-6 py-4 text-right text-sm font-medium text-gray-500">
                                 {formatDate(result.completion_date)}
                               </td>
                             </tr>
@@ -326,57 +410,55 @@ function Dashboard() {
                     </div>
                   </div>
 
-             
-                                 {/* Exam Overview Table */}
-                                 <div className="bg-white dark:bg-gray-800 shadow-lg rounded-lg">
-                    <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
-                      <h2 className="font-semibold text-gray-800 dark:text-white">Tổng quan bài thi</h2>
+
+                  {/* Exam Overview Table */}
+                  <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 shadow-sm rounded-2xl overflow-hidden">
+                    <div className="px-6 py-5 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
+                      <h2 className="text-lg font-bold text-gray-900 dark:text-white">Tổng quan bài thi</h2>
                     </div>
-                    <div className="p-4">
-                      <div className="overflow-x-auto">
-                        <table className="w-full">
-                          <thead className="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">
-                            <tr>
-                              <th className="py-2 text-left">Tiêu đề</th>
-                              <th className="py-2 text-center">Loại</th>
-                              <th className="py-2 text-center">Trạng thái</th>
-                              <th className="py-2 text-center">Lần thử</th>
-                              <th className="py-2 text-right">Ngày tạo</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                            {exams.slice(0, 7).map((exam) => (
-                              <tr key={exam.exam_id}>
-                                <td className="py-2">
-                                  <div className="font-medium text-gray-800 dark:text-white">
-                                    {exam.title}
-                                  </div>
-                                </td>
-                                <td className="py-2 text-center">
-                                  <div className="text-sm text-gray-500">
-                                    {exam.section_types[0]}
-                                  </div>
-                                </td>
-                                <td className="py-2 text-center">
-                                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                                    exam.is_active
-                                      ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
-                                      : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead className="bg-gray-50/50 dark:bg-gray-800/50 text-xs font-semibold uppercase text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
+                          <tr>
+                            <th className="px-6 py-4 text-left">Tiêu đề</th>
+                            <th className="px-6 py-4 text-center">Loại</th>
+                            <th className="px-6 py-4 text-center">Trạng thái</th>
+                            <th className="px-6 py-4 text-center">Lần thử</th>
+                            <th className="px-6 py-4 text-right">Ngày tạo</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                          {exams.slice(0, 7).map((exam) => (
+                            <tr key={exam.exam_id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors">
+                              <td className="px-6 py-4">
+                                <div className="font-semibold text-gray-900 dark:text-white">
+                                  {exam.title}
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 text-center">
+                                <span className="text-sm font-medium px-2.5 py-1 bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 rounded-lg">
+                                  {exam.section_types[0]}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 text-center">
+                                <span className={`inline-flex items-center px-2.5 py-1 text-xs font-bold rounded-lg ${exam.is_active
+                                  ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                                  : 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'
                                   }`}>
-                                    {exam.is_active ? 'Hoạt động' : 'Không hoạt động'}
-                                  </span>
-                                </td>
-                                <td className="py-2 text-center text-gray-600 dark:text-gray-400">
-                                  {exam.attempts}
-                                </td>
-                                <td className="py-2 text-right text-sm text-gray-500">
-                                  {formatDate(exam.created_at)}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
+                                  <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${exam.is_active ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
+                                  {exam.is_active ? 'Hoạt động' : 'Tạm dừng'}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 text-center text-sm font-medium text-gray-600 dark:text-gray-400">
+                                {exam.attempts}
+                              </td>
+                              <td className="px-6 py-4 text-right text-sm font-medium text-gray-500">
+                                {formatDate(exam.created_at)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
                 </div>
@@ -384,24 +466,24 @@ function Dashboard() {
                 {/* Sidebar Content */}
                 <div className="col-span-12 xl:col-span-4 space-y-6">
                   {/* Package Summary */}
-                  <div className="bg-white dark:bg-gray-800 shadow-lg rounded-lg">
-                    <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
-                      <h2 className="font-semibold text-gray-800 dark:text-white">Tổng hợp gói dịch vụ</h2>
+                  <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 shadow-sm rounded-2xl overflow-hidden">
+                    <div className="px-6 py-5 border-b border-gray-100 dark:border-gray-700">
+                      <h2 className="text-lg font-bold text-gray-900 dark:text-white">Gói dịch vụ</h2>
                     </div>
-                    <div className="p-4">
-                      <div className="space-y-4">
+                    <div className="p-5">
+                      <div className="space-y-3">
                         {packageStats.package_statistics.map((pkg) => (
-                          <div key={pkg.package_id} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                          <div key={pkg.package_id} className="flex justify-between items-center p-4 bg-gray-50/50 hover:bg-gray-50 dark:bg-gray-800/50 dark:hover:bg-gray-700/50 border border-gray-100 dark:border-gray-700 rounded-xl transition-colors">
                             <div>
-                              <div className="font-medium text-gray-800 dark:text-white">{pkg.name}</div>
-                              <div className="text-sm text-gray-500">{formatCurrency(pkg.price)}</div>
+                              <div className="font-bold text-gray-900 dark:text-white">{pkg.name}</div>
+                              <div className="text-sm font-medium text-gray-500 mt-0.5">{formatCurrency(pkg.price)}</div>
                             </div>
                             <div className="text-right">
-                              <div className="font-medium text-green-600 dark:text-green-400">
+                              <div className="font-bold text-emerald-600 dark:text-emerald-400">
                                 {formatCurrency(pkg.revenue)}
                               </div>
-                              <div className="text-sm text-gray-500">
-                                {pkg.paid_subscriptions}/{pkg.total_subscriptions} đăng ký
+                              <div className="text-xs font-semibold text-gray-500 mt-1 bg-white dark:bg-gray-800 px-2.5 py-1 rounded-md border border-gray-200 dark:border-gray-600 inline-block">
+                                {pkg.paid_subscriptions}/{pkg.total_subscriptions} subs
                               </div>
                             </div>
                           </div>
@@ -411,32 +493,34 @@ function Dashboard() {
                   </div>
 
                   {/* Recent Transactions */}
-                  <div className="bg-white dark:bg-gray-800 shadow-lg rounded-lg">
-                    <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
-                      <h2 className="font-semibold text-gray-800 dark:text-white">Giao dịch gần đây</h2>
+                  <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 shadow-sm rounded-2xl overflow-hidden">
+                    <div className="px-6 py-5 border-b border-gray-100 dark:border-gray-700">
+                      <h2 className="text-lg font-bold text-gray-900 dark:text-white">Giao dịch gần đây</h2>
                     </div>
-                    <div className="p-3">
+                    <div className="p-2">
                       <div className="overflow-y-auto max-h-[500px]">
                         {packageStats.recent_transactions.slice(0, 5).map((transaction) => (
-                          <div key={transaction.transaction_id} className="p-3 border-b border-gray-100 dark:border-gray-700">
-                            <div className="flex justify-between items-center">
-                              <div>
-                                <div className="font-medium text-gray-800 dark:text-white">{transaction.user_email}</div>
-                                <div className="text-sm text-gray-500">{transaction.package_name}</div>
+                          <div key={transaction.transaction_id} className="p-4 mx-2 my-1 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-xl transition-colors">
+                            <div className="flex justify-between items-start mb-2">
+                              <div className="pr-2">
+                                <div className="font-bold text-gray-900 dark:text-white text-sm">{transaction.user_email}</div>
+                                <div className="text-xs font-medium text-gray-500 mt-1 pl-0 ml-0 flex items-center">
+                                  <Package className="w-3 h-3 mr-1" />
+                                  <span className="truncate max-w-[140px] inline-block">{transaction.package_name}</span>
+                                </div>
                               </div>
-                              <div className="text-right">
-                                <div className="font-medium text-green-600 dark:text-green-400">
+                              <div className="text-right whitespace-nowrap">
+                                <div className="font-bold text-gray-900 dark:text-white">
                                   {formatCurrency(transaction.amount)}
                                 </div>
-                                <div className="text-sm text-gray-500">{formatDate(transaction.created_at)}</div>
+                                <div className="text-xs font-medium text-gray-500 mt-1">{formatDate(transaction.created_at)}</div>
                               </div>
                             </div>
-                            <div className="mt-1">
-                              <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${
-                                transaction.status === 'completed' 
-                                  ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
-                                  : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
-                              }`}>
+                            <div className="mt-2">
+                              <span className={`inline-flex items-center px-2 py-0.5 text-[11px] font-bold rounded-md ${transaction.status === 'completed'
+                                ? 'bg-green-50 text-green-700 border border-green-200'
+                                : 'bg-amber-50 text-amber-700 border border-amber-200'
+                                }`}>
                                 {transaction.status === 'completed' ? 'Hoàn thành' : 'Đang xử lý'}
                               </span>
                             </div>

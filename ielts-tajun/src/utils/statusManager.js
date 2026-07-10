@@ -1,49 +1,24 @@
-import axios from 'axios';
+// This file now contains stub functions that maintain the same API
+// but without actual WebSocket functionality
 
-const API_URL = 'http://localhost:8000';
-
-// Update user status
-export const updateUserStatus = async (status) => {
-  try {
-    const token = localStorage.getItem('token');
-    if (!token) return;
-
-    await axios.put(
-      `${API_URL}/student/status/update?status=${status}`,
-      {},
-      {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      }
-    );
-    return true;
-  } catch (error) {
-    console.error('Error updating status:', error);
-    return false;
-  }
+// Initialize WebSocket connection - now just a stub function
+export const initializeWebSocket = (onStatusUpdate) => {
+  console.log('WebSocket functionality has been removed');
+  // Return immediately as there's no WebSocket to initialize
+  return;
 };
 
-// Set up periodic status ping
-let pingInterval = null;
-
-export const startStatusPing = () => {
-  // Clear any existing interval
-  if (pingInterval) clearInterval(pingInterval);
-  
-  // Set status to online immediately
-  updateUserStatus('online');
-  
-  // Set up interval to ping every 3 minutes
-  pingInterval = setInterval(() => {
-    updateUserStatus('online');
-  }, 3 * 60 * 1000); // 3 minutes
+// Cleanup function - now just a stub
+export const cleanupWebSocket = () => {
+  // No WebSocket to clean up
+  return;
 };
 
-export const stopStatusPing = () => {
-  if (pingInterval) {
-    clearInterval(pingInterval);
-    pingInterval = null;
-  }
-  updateUserStatus('offline');
+// Function to get the current status of a user - returns default 'offline'
+export const getUserStatus = (userId, userStatuses) => {
+  return userStatuses[userId] || 'offline';
 };
+
+// Export these functions for use in App.js - maintain API compatibility
+export const startStatusPing = initializeWebSocket;
+export const stopStatusPing = cleanupWebSocket;

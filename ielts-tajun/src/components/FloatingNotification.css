@@ -1,0 +1,31 @@
+/* Add these styles to your existing FloatingNotification.css */
+
+.notification-swiper {
+  width: 100%;
+  padding-bottom: 30px; /* Space for pagination bullets */
+}
+
+.nested-notification-swiper {
+  width: 100%;
+}
+
+
+/* Bell animation */
+.bell-ring {
+  animation: bell-ring 2s infinite;
+}
+
+@keyframes bell-ring {
+  0%, 100% {
+    transform: rotate(0);
+  }
+  5%, 15% {
+    transform: rotate(15deg);
+  }
+  10%, 20% {
+    transform: rotate(-15deg);
+  }
+  25% {
+    transform: rotate(0);
+  }
+}

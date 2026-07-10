@@ -1,3 +1,62 @@
 # https://www.robotstxt.org/robotstxt.html
 User-agent: *
-Disallow:
+
+# Allow main public pages for SEO
+Allow: /
+Allow: /de-thi
+Allow: /de-thi/
+Allow: /login
+Allow: /register
+Allow: /about
+Allow: /achievements
+Allow: /listening_list
+Allow: /speaking_list
+Allow: /writing_list
+Allow: /reading_list
+Allow: /vip-packages
+Allow: /privacy-policy
+Allow: /payment-policy
+Allow: /comp-policy
+Allow: /deli-policy
+Allow: /permission
+Allow: /forgot-password
+Allow: /reset-password
+
+# Block all admin routes and subdomains
+Disallow: /admin/
+Disallow: /admin/*
+Disallow: /login/admin
+Disallow: /manage_student
+Disallow: /manage_test
+Disallow: /create_student
+Disallow: /create_listening_test
+Disallow: /create_writing_test
+Disallow: /create_reading_test
+Disallow: /create_speaking_test
+Disallow: /packages
+Disallow: /transactions
+Disallow: /subscriptions
+Disallow: /settings
+
+# Block private user pages and test rooms
+Disallow: /auth-callback
+Disallow: /profile
+Disallow: /result_review
+Disallow: /result_review_rd
+Disallow: /exam-result/
+Disallow: /listening_test_room
+Disallow: /reading_test_room
+Disallow: /speaking_test_room
+Disallow: /writing_test_room
+Disallow: /payment
+Disallow: /transaction-status
+Disallow: /vip-confirmation
+Disallow: /my-vip-package
+Disallow: /exam-history
+
+# Block any potential admin subdomain paths
+Disallow: /*admin*
+Disallow: /*manage*
+
+# Sitemap
+Sitemap: https://thiieltstrenmay.com/sitemap.xml
