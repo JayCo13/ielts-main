@@ -15,6 +15,7 @@ from .admin.multiple_actions import router as multiple_actions_router
 from .student.multiple_actions import router as student_multiple_actions_router
 from .student.vocabulary_routes import router as vocabulary_router
 from .student.dictation_routes import router as student_dictation_router
+from .student.translate_routes import router as student_translate_router
 from .seo.seo_pages import router as seo_router
 
 router = APIRouter()
@@ -36,6 +37,7 @@ router.include_router(ai_router, prefix="/ai", tags=["ai"])
 router.include_router(auth_router, tags=["auth"])
 router.include_router(vocabulary_router, prefix="/student", tags=["vocabulary"])
 router.include_router(student_dictation_router, prefix="/student", tags=["student-dictation"])
+router.include_router(student_translate_router, prefix="/student", tags=["student-translate"])
 # Public, no-auth, server-rendered SEO landing pages + dynamic sitemap.
 # Mounted at root so nginx serves them from the main domain (/de-thi/*, /sitemap.xml).
 router.include_router(seo_router, tags=["seo"])
