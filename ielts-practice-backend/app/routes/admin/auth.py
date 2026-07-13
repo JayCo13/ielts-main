@@ -36,6 +36,7 @@ class StudentCreate(BaseModel):
     username: str
     email: EmailStr
     password: str
+    code: str  # OTP sent to the email, verified before the account is created
 
 class UpdateAdminProfileRequest(BaseModel):
     email: Optional[str] = None
@@ -1041,7 +1042,7 @@ async def register_student(student_data: StudentCreate, db: Session = Depends(ge
     # Validate if the email domain is real
     try:
         from app.utils.email_utils import is_valid_email
-        
+
         if not is_valid_email(student_data.email):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -1050,7 +1051,25 @@ async def register_student(student_data: StudentCreate, db: Session = Depends(ge
     except ImportError:
         # If email validation isn't available, continue with registration
         pass
-    
+
+    # Reject disposable / temporary email providers (defense in depth; the FE
+    # and /send-verification-code also check this).
+    from app.utils.email_blocklist import is_disposable_email
+    if is_disposable_email(student_data.email):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Vui lòng dùng email cá nhân thật (không dùng email tạm thời)"
+        )
+
+    # Require a valid OTP proving the user owns this inbox — blocks junk/fake
+    # emails from ever creating a row.
+    from app.routes.auth.email_verification import verify_email_code
+    if not await verify_email_code(student_data.email, student_data.code):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Mã xác thực không đúng hoặc đã hết hạn"
+        )
+
     # Create new student
     hashed_password = get_password_hash(student_data.password)
     new_student = User(

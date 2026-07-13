@@ -14,13 +14,15 @@ const Register = () => {
     username: '',
     email: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    code: ''
   });
   const [errors, setErrors] = useState({
     username: '',
     email: '',
     password: '',
     confirmPassword: '',
+    code: '',
     general: ''
   });
   const [isLoading, setIsLoading] = useState(false);
@@ -31,6 +33,44 @@ const Register = () => {
   const [confirmPasswordVisible, setConfirmPasswordVisible] = useState(false);
   const [isVerifyingEmail, setIsVerifyingEmail] = useState(false);
   const [isEmailValid, setIsEmailValid] = useState(false);
+  const [codeSent, setCodeSent] = useState(false);
+  const [sendingCode, setSendingCode] = useState(false);
+  const [resendCountdown, setResendCountdown] = useState(0);
+
+  // Countdown for the "resend code" cooldown
+  useEffect(() => {
+    if (resendCountdown <= 0) return;
+    const t = setTimeout(() => setResendCountdown(resendCountdown - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendCountdown]);
+
+  // Request a 6-digit OTP to be emailed to the entered address
+  const sendVerificationCode = async () => {
+    if (!formData.email || !/\S+@\S+\.\S+/.test(formData.email)) {
+      setErrors(prev => ({ ...prev, email: 'Vui lòng nhập email hợp lệ trước' }));
+      return;
+    }
+    setSendingCode(true);
+    setErrors(prev => ({ ...prev, email: '', code: '', general: '' }));
+    try {
+      const response = await fetch(`${API_BASE}/auth/send-verification-code`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: formData.email })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setCodeSent(true);
+        setResendCountdown(60);
+      } else {
+        setErrors(prev => ({ ...prev, email: data.detail || 'Không gửi được mã. Vui lòng thử lại.' }));
+      }
+    } catch (error) {
+      setErrors(prev => ({ ...prev, email: 'Lỗi kết nối. Vui lòng thử lại sau.' }));
+    } finally {
+      setSendingCode(false);
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -40,9 +80,13 @@ const Register = () => {
       [name]: value
     });
 
-    // If email field changes, reset validation
+    // If email field changes, reset validation and any code already sent to
+    // the previous address.
     if (name === 'email') {
       setIsEmailValid(false);
+      setCodeSent(false);
+      setResendCountdown(0);
+      setFormData(prev => ({ ...prev, code: '' }));
     }
 
     // Calculate password strength if password field changes
@@ -272,6 +316,14 @@ const Register = () => {
       isValid = false;
     }
 
+    if (!codeSent) {
+      newErrors.code = 'Vui lòng bấm "Gửi mã" và nhập mã xác thực gửi tới email';
+      isValid = false;
+    } else if (!formData.code || formData.code.trim().length === 0) {
+      newErrors.code = 'Vui lòng nhập mã xác thực đã gửi tới email';
+      isValid = false;
+    }
+
     setErrors(newErrors);
     return isValid;
   };
@@ -294,7 +346,8 @@ const Register = () => {
         body: JSON.stringify({
           username: formData.username,
           email: formData.email,
-          password: formData.password
+          password: formData.password,
+          code: formData.code
         })
       });
 
@@ -318,6 +371,8 @@ const Register = () => {
           setErrors(prev => ({ ...prev, username: 'Tên người dùng đã tồn tại' }));
         } else if (data.detail === "Email already registered") {
           setErrors(prev => ({ ...prev, email: 'Email đã được đăng ký' }));
+        } else if (typeof data.detail === 'string' && data.detail.includes('Mã xác thực')) {
+          setErrors(prev => ({ ...prev, code: data.detail }));
         } else {
           setErrors(prev => ({ ...prev, general: data.detail || 'Đăng ký thất bại. Vui lòng thử lại.' }));
         }
@@ -639,6 +694,37 @@ const Register = () => {
                     </div>
                     {errors.confirmPassword && (
                       <p className="text-red-500 text-sm mt-1">{errors.confirmPassword}</p>
+                    )}
+                  </div>
+
+                  {/* Email verification code */}
+                  <div className="space-y-1">
+                    <label className="block text-gray-500 font-bold mb-1">Mã xác thực email</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        name="code"
+                        inputMode="numeric"
+                        maxLength={6}
+                        placeholder="Nhập mã 6 số"
+                        value={formData.code}
+                        onChange={handleChange}
+                        className={`flex-1 px-4 py-3 border rounded-lg tracking-widest focus:ring-2 focus:ring-lime-500 focus:border-lime-500 outline-none transition-all ${errors.code ? 'border-red-500' : 'border-gray-300'}`}
+                      />
+                      <button
+                        type="button"
+                        onClick={sendVerificationCode}
+                        disabled={sendingCode || resendCountdown > 0}
+                        className={`whitespace-nowrap px-4 py-3 rounded-lg font-medium border border-lime-500 text-lime-600 hover:bg-lime-50 transition-colors ${(sendingCode || resendCountdown > 0) ? 'opacity-60 cursor-not-allowed' : ''}`}
+                      >
+                        {sendingCode ? 'Đang gửi...' : resendCountdown > 0 ? `Gửi lại (${resendCountdown}s)` : codeSent ? 'Gửi lại mã' : 'Gửi mã'}
+                      </button>
+                    </div>
+                    {codeSent && !errors.code && (
+                      <p className="text-green-600 text-sm mt-1">Đã gửi mã tới email của bạn. Vui lòng kiểm tra hộp thư (cả mục Spam).</p>
+                    )}
+                    {errors.code && (
+                      <p className="text-red-500 text-sm mt-1">{errors.code}</p>
                     )}
                   </div>
 
