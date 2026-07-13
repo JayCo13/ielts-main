@@ -30,7 +30,15 @@ def _get_ses_client():
 
 
 def send_single_email(to_email: str, subject: str, body_html: str) -> bool:
-    """Send a single email via SES. Returns True on success, False on failure."""
+    """Send a single marketing email. Prefers Resend when configured, else SES.
+
+    Returns True on success, False on failure.
+    """
+    # Prefer Resend when configured; SES stays as the fallback transport.
+    from app.utils.resend_client import resend_configured, send_via_resend, marketing_from
+    if resend_configured():
+        return send_via_resend(marketing_from(), to_email, subject, body_html)
+
     if not SES_FROM_EMAIL:
         logger.error("SES_FROM_EMAIL is not configured")
         return False

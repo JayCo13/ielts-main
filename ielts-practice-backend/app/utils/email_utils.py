@@ -60,12 +60,18 @@ def send_email(to_email: str, subject: str, html_content: str) -> bool:
     Returns:
         bool: True if email was sent successfully, False otherwise
     """
+    # Prefer Resend when configured; otherwise fall back to Gmail SMTP so this
+    # stays a no-op until RESEND_API_KEY is set.
+    from app.utils.resend_client import resend_configured, send_via_resend, transactional_from
+    if resend_configured():
+        return send_via_resend(transactional_from(), to_email, subject, html_content)
+
     if not EMAIL_USERNAME or not EMAIL_PASSWORD:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Email service is not configured properly"
         )
-    
+
     # Create message
     message = MIMEMultipart("alternative")
     message["Subject"] = subject
