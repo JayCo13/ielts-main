@@ -34,9 +34,10 @@ def send_single_email(to_email: str, subject: str, body_html: str) -> bool:
 
     Returns True on success, False on failure.
     """
-    # Prefer Resend when configured; SES stays as the fallback transport.
-    from app.utils.resend_client import resend_configured, send_via_resend, marketing_from
-    if resend_configured():
+    # Use Resend for marketing ONLY when explicitly opted in (RESEND_MARKETING),
+    # since bulk blasts on Resend can cost far more than SES / a bulk ESP.
+    from app.utils.resend_client import resend_marketing_enabled, send_via_resend, marketing_from
+    if resend_marketing_enabled():
         return send_via_resend(marketing_from(), to_email, subject, body_html)
 
     if not SES_FROM_EMAIL:

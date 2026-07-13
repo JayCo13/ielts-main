@@ -29,6 +29,13 @@ def resend_configured() -> bool:
     return bool(os.getenv("RESEND_API_KEY"))
 
 
+def resend_marketing_enabled() -> bool:
+    # Marketing must opt in explicitly: a big broadcast on Resend can be far
+    # pricier than a bulk ESP / SES, so setting the auth key alone must NOT
+    # route 30k-recipient blasts through Resend.
+    return resend_configured() and os.getenv("RESEND_MARKETING", "").lower() in ("1", "true", "yes")
+
+
 def transactional_from() -> str:
     return os.getenv("RESEND_FROM", DEFAULT_FROM)
 
