@@ -361,9 +361,11 @@ const Register = () => {
         // Show success message
         setRegistrationSuccess(true);
 
-        // Redirect to login after 3 seconds, pre-filling the username there
+        // Stash username so /login can pre-fill it (survives the redirect
+        // reliably, unlike router state), then redirect after 3 seconds.
+        sessionStorage.setItem('postRegisterUsername', formData.username);
         setTimeout(() => {
-          navigate('/login', { state: { prefillUsername: formData.username, justRegistered: true } });
+          navigate('/login');
         }, 3000);
       } else {
         // Handle specific error messages from the API

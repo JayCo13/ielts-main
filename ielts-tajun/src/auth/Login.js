@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import Lottie from 'lottie-react';
 import animationData from '../effect/Login.json';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -125,20 +125,16 @@ const LoginForm = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [infoMessage, setInfoMessage] = useState('');
   const navigate = useNavigate();
-  const location = useLocation();
 
   // Pre-fill username after a successful registration and greet the user.
   useEffect(() => {
-    const st = location.state;
-    if (st && st.prefillUsername) {
-      setFormData(prev => ({ ...prev, username: st.prefillUsername }));
-      if (st.justRegistered) {
-        setInfoMessage('Đăng ký thành công! Đăng nhập để tiếp tục.');
-      }
-      // Clear the router state so it doesn't re-apply on refresh/back.
-      window.history.replaceState({}, document.title);
+    const u = sessionStorage.getItem('postRegisterUsername');
+    if (u) {
+      setFormData(prev => ({ ...prev, username: u }));
+      setInfoMessage('Đăng ký thành công! Đăng nhập để tiếp tục.');
+      sessionStorage.removeItem('postRegisterUsername');
     }
-  }, [location.state]);
+  }, []);
 
   // Update Google login handler to use the new endpoint
   const handleGoogleLogin = async () => {
