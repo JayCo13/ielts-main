@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import Lottie from 'lottie-react';
 import animationData from '../effect/Login.json';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -123,7 +123,22 @@ const LoginForm = () => {
   const [warningMessage, setWarningMessage] = useState('');
   const [warningCountdownTime, setWarningCountdownTime] = useState(30);
   const [showPassword, setShowPassword] = useState(false);
+  const [infoMessage, setInfoMessage] = useState('');
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Pre-fill username after a successful registration and greet the user.
+  useEffect(() => {
+    const st = location.state;
+    if (st && st.prefillUsername) {
+      setFormData(prev => ({ ...prev, username: st.prefillUsername }));
+      if (st.justRegistered) {
+        setInfoMessage('Đăng ký thành công! Đăng nhập để tiếp tục.');
+      }
+      // Clear the router state so it doesn't re-apply on refresh/back.
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   // Update Google login handler to use the new endpoint
   const handleGoogleLogin = async () => {
@@ -315,6 +330,11 @@ const LoginForm = () => {
                 <h1 className="text-2xl font-bold text-lime-500 mb-8 text-center">Đăng Nhập Thiieltstrenmay.com</h1>
 
                 <form className="space-y-6" onSubmit={handleSubmit}>
+                  {infoMessage && (
+                    <div className="bg-lime-50 border border-lime-200 text-lime-700 px-4 py-3 rounded-lg text-sm">
+                      {infoMessage}
+                    </div>
+                  )}
                   {/* Username field */}
                   <div className="space-y-2">
                     <label className="block text-gray-500 font-bold mb-1">Tên đăng nhập</label>

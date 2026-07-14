@@ -361,9 +361,9 @@ const Register = () => {
         // Show success message
         setRegistrationSuccess(true);
 
-        // Redirect to login after 3 seconds
+        // Redirect to login after 3 seconds, pre-filling the username there
         setTimeout(() => {
-          navigate('/login');
+          navigate('/login', { state: { prefillUsername: formData.username, justRegistered: true } });
         }, 3000);
       } else {
         // Handle specific error messages from the API
