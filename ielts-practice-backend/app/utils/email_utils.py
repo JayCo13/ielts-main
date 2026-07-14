@@ -3,6 +3,8 @@ import smtplib
 import dns.resolver
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.utils import formataddr
+from email.header import Header
 from dotenv import load_dotenv
 from fastapi import HTTPException, status
 
@@ -15,6 +17,7 @@ EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
 EMAIL_USERNAME = os.getenv("EMAIL_USERNAME")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 EMAIL_FROM = os.getenv("EMAIL_FROM")
+EMAIL_FROM_NAME = os.getenv("EMAIL_FROM_NAME", "")  # display name, e.g. "Thi IELTS Trên Máy"
 
 # Print debug information
 print(f"Email Configuration Debug:")
@@ -75,7 +78,9 @@ def send_email(to_email: str, subject: str, html_content: str) -> bool:
     # Create message
     message = MIMEMultipart("alternative")
     message["Subject"] = subject
-    message["From"] = EMAIL_FROM or EMAIL_USERNAME
+    sender_addr = EMAIL_FROM or EMAIL_USERNAME
+    # RFC 2047-encode the display name so Vietnamese diacritics don't corrupt the header.
+    message["From"] = formataddr((str(Header(EMAIL_FROM_NAME, "utf-8")), sender_addr)) if EMAIL_FROM_NAME else sender_addr
     message["To"] = to_email
     
     # Attach HTML content
