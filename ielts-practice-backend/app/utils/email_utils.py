@@ -114,31 +114,20 @@ def send_password_reset_email(to_email: str, reset_token: str, username: str, fr
     Returns:
         bool: True if email was sent successfully, False otherwise
     """
+    from app.utils.email_templates import render_email, paragraph, cta_button
+
     # Create reset link
     reset_link = f"{frontend_url}/reset-password?token={reset_token}"
-    
-       # Email content
-    subject = "thiieltstrenmay.com - Đặt Lại Mật Khẩu"
-    html_content = f"""
-    <html>
-    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-        <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
-            <h2 style="color: #4a86e8;">thiieltstrenmay.com - Đặt Lại Mật Khẩu</h2>
-            <p>Xin chào {username},</p>
-            <p>Chúng tôi đã nhận được yêu cầu đặt lại mật khẩu cho tài khoản thiieltstrenmay.com của bạn.</p>
-            <p>Để đặt lại mật khẩu, vui lòng nhấp vào liên kết dưới đây:</p>
-            <p>
-                <a href="{reset_link}" style="display: inline-block; padding: 10px 20px; background-color: #4a86e8; color: white; text-decoration: none; border-radius: 5px;">
-                    Đặt Lại Mật Khẩu
-                </a>
-            </p>
-            <p>Liên kết này sẽ hết hạn sau 30 phút.</p>
-            <p>Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này hoặc liên hệ với bộ phận hỗ trợ nếu bạn có thắc mắc.</p>
-            <p>Xin cảm ơn,<br>Đội ngũ thiieltstrenmay.com</p>
-        </div>
-    </body>
-    </html>
-    """ 
+
+    subject = "Đặt lại mật khẩu - thiieltstrenmay.com"
+    body = (
+        paragraph(f"Xin chào <strong>{username}</strong>,")
+        + paragraph("Chúng tôi đã nhận được yêu cầu đặt lại mật khẩu cho tài khoản của bạn. Nhấn nút bên dưới để tạo mật khẩu mới:")
+        + cta_button("Đặt lại mật khẩu", reset_link)
+        + paragraph("Liên kết này sẽ hết hạn sau <strong>30 phút</strong>.")
+        + paragraph("Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này — tài khoản của bạn vẫn an toàn.")
+    )
+    html_content = render_email("Đặt lại mật khẩu", body, preheader="Yêu cầu đặt lại mật khẩu tài khoản của bạn")
     return send_email(to_email, subject, html_content)
 
 def send_account_created_email(to_email: str, username: str, frontend_url: str) -> bool:
@@ -153,30 +142,17 @@ def send_account_created_email(to_email: str, username: str, frontend_url: str) 
     Returns:
         bool: True if email was sent successfully, False otherwise
     """
+    from app.utils.email_templates import render_email, paragraph, cta_button
+
     # Create login link
     login_link = f"{frontend_url}/login"
-    
-    # Email content
-        # Email content
-    subject = "thiieltstrenmay.com - Tài Khoản Đã Được Tạo"
-    html_content = f"""
-    <html>
-    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-        <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
-            <h2 style="color: #4a86e8;">Chào mừng đến với thiieltstrenmay.com!</h2>
-            <p>Xin chào {username},</p>
-            <p>Chúng tôi rất vui mừng thông báo rằng tài khoản thiieltstrenmay.com của bạn đã được tạo thành công.</p>
-            <p>Bạn có thể đăng nhập ngay bây giờ để truy cập tất cả các tài nguyên luyện thi IELTS của chúng tôi.</p>
-            <p>
-                <a href="{login_link}" style="display: inline-block; padding: 10px 20px; background-color: #4a86e8; color: white; text-decoration: none; border-radius: 5px;">
-                    Đăng Nhập Ngay
-                </a>
-            </p>
-            <p>Nếu bạn có bất kỳ câu hỏi hoặc cần hỗ trợ, vui lòng liên hệ với đội ngũ hỗ trợ của chúng tôi.</p>
-            <p>Xin cảm ơn,<br>Đội ngũ thiieltstrenmay.com</p>
-        </div>
-    </body>
-    </html>
-    """
-    
-    return send_email(to_email, subject, html_content) 
+
+    subject = "Chào mừng đến với thiieltstrenmay.com!"
+    body = (
+        paragraph(f"Xin chào <strong>{username}</strong>,")
+        + paragraph("Tài khoản của bạn đã được tạo thành công. Bạn có thể đăng nhập ngay để truy cập toàn bộ tài nguyên luyện thi IELTS của chúng tôi.")
+        + cta_button("Đăng nhập ngay", login_link)
+        + paragraph("Nếu bạn có bất kỳ câu hỏi nào hoặc cần hỗ trợ, đừng ngần ngại liên hệ với chúng tôi.")
+    )
+    html_content = render_email("Chào mừng bạn! 🎉", body, preheader="Tài khoản của bạn đã sẵn sàng")
+    return send_email(to_email, subject, html_content)

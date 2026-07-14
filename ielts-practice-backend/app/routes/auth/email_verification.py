@@ -117,21 +117,14 @@ async def verify_email(
 
 
 def _otp_email_html(code: str) -> str:
-    return f"""
-    <html>
-    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-        <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
-            <h2 style="color: #4a86e8;">thiieltstrenmay.com - Mã xác thực đăng ký</h2>
-            <p>Xin chào,</p>
-            <p>Mã xác thực đăng ký tài khoản của bạn là:</p>
-            <p style="font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #111; text-align: center; margin: 24px 0;">{code}</p>
-            <p>Mã có hiệu lực trong <strong>10 phút</strong>. Vui lòng không chia sẻ mã này với bất kỳ ai.</p>
-            <p>Nếu bạn không yêu cầu đăng ký, hãy bỏ qua email này.</p>
-            <p>Cảm ơn bạn,<br>Đội ngũ thiieltstrenmay.com</p>
-        </div>
-    </body>
-    </html>
-    """
+    from app.utils.email_templates import render_email, paragraph, otp_code_block
+    body = (
+        paragraph("Xin chào,")
+        + paragraph("Mã xác thực để hoàn tất đăng ký tài khoản của bạn là:")
+        + otp_code_block(code)
+        + paragraph("Vui lòng không chia sẻ mã này với bất kỳ ai. Nếu bạn không thực hiện yêu cầu đăng ký, hãy bỏ qua email này.")
+    )
+    return render_email("Mã xác thực đăng ký", body, preheader=f"Mã xác thực của bạn: {code}")
 
 
 @router.post("/send-verification-code", response_model=Dict)
