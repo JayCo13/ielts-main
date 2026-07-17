@@ -1094,45 +1094,14 @@ async def register_student(student_data: StudentCreate, db: Session = Depends(ge
         expires_delta=access_token_expires
     )
     
-    # Send welcome email
+    # Send welcome email using the shared branded template (don't block on failure)
     try:
         from app.utils.email_utils import send_account_created_email
         frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
-        
-        # Send the welcome email silently (don't raise exceptions if it fails)
-        try:
-            # Customize the welcome email in Vietnamese directly here
-            from app.utils.email_utils import send_email
-            
-            subject = "thiieltstrenmay.com - Chào mừng bạn đến với hệ thống"
-            html_content = f"""
-            <html>
-            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-                <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
-                    <h2 style="color: #4a86e8;">Chào mừng đến với thiieltstrenmay.com!</h2>
-                    <p>Xin chào {new_student.username},</p>
-                    <p>Chúng tôi rất vui mừng thông báo rằng tài khoản Ielttrenmay của bạn đã được tạo thành công.</p>
-                    <p>Bạn có thể đăng nhập ngay bây giờ để truy cập tất cả các tài liệu ôn thi IELTS của chúng tôi.</p>
-                    <p>
-                        <a href="{frontend_url}/login" style="display: inline-block; padding: 10px 20px; background-color: #4a86e8; color: white; text-decoration: none; border-radius: 5px;">
-                            Đăng nhập ngay
-                        </a>
-                    </p>
-                    <p>Nếu bạn có bất kỳ câu hỏi hoặc cần hỗ trợ, đừng ngần ngại liên hệ với đội ngũ hỗ trợ của chúng tôi.</p>
-                    <p>Cảm ơn bạn,<br>Đội ngũ thiieltstrenmay.com</p>
-                </div>
-            </body>
-            </html>
-            """
-            
-            # Send the custom Vietnamese email
-            send_email(new_student.email, subject, html_content)
-        except Exception as e:
-            print(f"Failed to send welcome email: {str(e)}")
-            # Don't block the registration if email fails
-    except ImportError:
-        # If email utils aren't available, just continue
-        pass
+        send_account_created_email(new_student.email, new_student.username, frontend_url)
+    except Exception as e:
+        print(f"Failed to send welcome email: {str(e)}")
+        # Don't block the registration if email fails
     
     return {
         "access_token": access_token,

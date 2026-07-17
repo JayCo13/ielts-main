@@ -154,7 +154,7 @@ const StudentGuard = () => {
         <div className="bg-white p-8 rounded-lg shadow-lg text-center max-w-md">
           <h2 className="text-xl font-bold mb-4 text-red-600">Tài khoản đã bị vô hiệu hoá</h2>
           <p className="mb-4">
-           Tài khoản của bạn đã bị đội ngũ kiểm duyệt vô hiệu hoá do vi phạm quy tắc của Ieltstrenmay.com
+           Tài khoản của bạn đã bị đội ngũ kiểm duyệt vô hiệu hoá do vi phạm quy tắc của thiieltstrenmay.com
           </p>
           <div className="flex justify-center gap-4">
             <button
