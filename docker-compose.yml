@@ -18,6 +18,7 @@ services:
       - user-ui
     networks:
       - ielts_network
+    restart: always
 
   certbot:
     image: certbot/certbot
