@@ -6,9 +6,11 @@ from pydantic import BaseModel, EmailStr, Field
 from datetime import datetime, timedelta
 from jose import jwt, JWTError
 import os
-from app.utils.email_utils import send_password_reset_email
+import secrets
+from app.utils.email_utils import send_password_reset_email, send_email
 from app.routes.admin.auth import pwd_context, SECRET_KEY, ALGORITHM, create_access_token, get_current_user
 from app.utils.datetime_utils import get_vietnam_time
+from app.utils.redis_cache import cache
 from typing import Optional
 
 router = APIRouter()
@@ -16,6 +18,12 @@ router = APIRouter()
 # Set token expiration to 30 minutes
 RESET_TOKEN_EXPIRE_MINUTES = 30
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+
+# OTP config for the authenticated change-password flow
+CHANGE_PW_OTP_TTL_SECONDS = 600       # code valid for 10 minutes
+CHANGE_PW_OTP_COOLDOWN = 60           # min seconds between sends per user
+CHANGE_PW_OTP_KEY = "change_pw_otp:{user_id}"
+CHANGE_PW_OTP_COOLDOWN_KEY = "change_pw_otp_cooldown:{user_id}"
 
 class PasswordResetRequest(BaseModel):
     email: EmailStr
@@ -25,10 +33,14 @@ class PasswordResetConfirm(BaseModel):
     new_password: str = Field(..., min_length=6)
     confirm_password: str
 
+class ChangePasswordCodeRequest(BaseModel):
+    current_password: str
+
 class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str = Field(..., min_length=6)
     confirm_password: str
+    code: str
 
 @router.post("/request-password-reset", response_model=dict)
 async def request_password_reset(
@@ -159,6 +171,88 @@ async def verify_reset_token(token: str):
     except JWTError:
         return {"valid": False}
 
+def _change_pw_otp_email_html(code: str, username: str) -> str:
+    from app.utils.email_templates import render_email, paragraph, otp_code_block
+    body = (
+        paragraph(f"Xin chào {username},")
+        + paragraph("Mã xác thực để đổi mật khẩu tài khoản của bạn là:")
+        + otp_code_block(code)
+        + paragraph("Mã có hiệu lực trong 10 phút. Vui lòng không chia sẻ mã này với bất kỳ ai. "
+                    "Nếu bạn không yêu cầu đổi mật khẩu, hãy bỏ qua email này và cân nhắc đổi mật khẩu ngay.")
+    )
+    return render_email("Mã xác thực đổi mật khẩu", body, preheader=f"Mã xác thực đổi mật khẩu: {code}")
+
+
+@router.post("/change-password/request-code", response_model=dict)
+async def request_change_password_code(
+    request: ChangePasswordCodeRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Send a 6-digit OTP to the authenticated user's email to authorize a password change.
+    Requires the current password so codes aren't sent on bad attempts. Works for all roles.
+    """
+    # Verify the current password before sending anything
+    if not pwd_context.verify(request.current_password, current_user.password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Mật khẩu hiện tại không đúng"
+        )
+
+    if not current_user.email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Tài khoản của bạn chưa có email để nhận mã xác thực"
+        )
+
+    # Rate limit resends per user
+    if await cache.exists(CHANGE_PW_OTP_COOLDOWN_KEY.format(user_id=current_user.user_id)):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Vui lòng đợi một chút trước khi gửi lại mã"
+        )
+
+    # Generate + store the code (keyed by user, single-use)
+    code = f"{secrets.randbelow(1000000):06d}"
+    stored = await cache.set(
+        CHANGE_PW_OTP_KEY.format(user_id=current_user.user_id),
+        code,
+        ttl=CHANGE_PW_OTP_TTL_SECONDS
+    )
+    if not stored:
+        # Redis unreachable — fail loudly rather than pretend a code was sent
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Dịch vụ xác thực tạm thời không khả dụng, vui lòng thử lại sau"
+        )
+    await cache.set(
+        CHANGE_PW_OTP_COOLDOWN_KEY.format(user_id=current_user.user_id),
+        "1",
+        ttl=CHANGE_PW_OTP_COOLDOWN
+    )
+
+    # Send it (transactional email path)
+    try:
+        send_email(
+            current_user.email,
+            "thiieltstrenmay.com - Mã xác thực đổi mật khẩu",
+            _change_pw_otp_email_html(code, current_user.username)
+        )
+    except Exception as e:
+        print(f"Failed to send change-password OTP to {current_user.email}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Không gửi được mã xác thực, vui lòng thử lại"
+        )
+
+    # Mask the email so the client can show where the code went
+    return {
+        "message": "Đã gửi mã xác thực tới email của bạn",
+        "email": current_user.email
+    }
+
+
 @router.post("/change-password", response_model=dict)
 async def change_password(
     request: ChangePasswordRequest,
@@ -167,7 +261,7 @@ async def change_password(
 ):
     """
     Change the password for the currently authenticated user.
-    Requires the current password for verification. Works for all roles.
+    Requires the current password AND a valid email OTP. Works for all roles.
     """
     # Verify the current password
     if not pwd_context.verify(request.current_password, current_user.password):
@@ -189,6 +283,22 @@ async def change_password(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Mật khẩu mới phải khác mật khẩu hiện tại"
         )
+
+    # Verify the email OTP (single-use, consumed on success)
+    otp_key = CHANGE_PW_OTP_KEY.format(user_id=current_user.user_id)
+    stored_code = await cache.get(otp_key)
+    submitted = (request.code or "").strip()
+    if stored_code is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Mã xác thực đã hết hạn, vui lòng gửi lại mã"
+        )
+    if str(stored_code) != submitted:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Mã xác thực không đúng"
+        )
+    await cache.delete(otp_key)
 
     # Update the password
     current_user.password = pwd_context.hash(request.new_password)
