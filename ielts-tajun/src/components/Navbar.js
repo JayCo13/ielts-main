@@ -12,6 +12,7 @@ const Navbar = () => {
     const [subscriptionStatus, setSubscriptionStatus] = useState(null);
     const [userEmail, setUserEmail] = useState(localStorage.getItem('email'));
     const [username, setUsername] = useState(localStorage.getItem('username'));
+    const [avatarUrl, setAvatarUrl] = useState(null);
     const dropdownRef = useRef(null);
     const mobileMenuRef = useRef(null);
     const navigate = useNavigate();
@@ -98,6 +99,7 @@ const Navbar = () => {
             if (profileResponse.ok && profileData) {
                 setUserEmail(profileData.email);
                 setUsername(profileData.username);
+                setAvatarUrl(profileData.image_url || null);
                 // Sync role from server to localStorage to prevent tampering
                 if (profileData.role) {
                     localStorage.setItem('role', profileData.role);
@@ -432,9 +434,18 @@ const Navbar = () => {
                         >
                             {username ? (
                                 <>
-                                    <div className="hidden sm:flex h-9 w-9 rounded-full bg-[#ffffff]/15 text-white items-center justify-center font-medium text-base">
-                                        {username.charAt(0).toUpperCase()}
-                                    </div>
+                                    {avatarUrl ? (
+                                        <img
+                                            src={avatarUrl}
+                                            alt={username}
+                                            onError={() => setAvatarUrl(null)}
+                                            className="hidden sm:block h-9 w-9 rounded-full object-cover border border-white/30"
+                                        />
+                                    ) : (
+                                        <div className="hidden sm:flex h-9 w-9 rounded-full bg-[#ffffff]/15 text-white items-center justify-center font-medium text-base">
+                                            {username.charAt(0).toUpperCase()}
+                                        </div>
+                                    )}
                                     <span className="hidden sm:block text-base font-medium text-white">{username}</span>
                                 </>
                             ) : (
@@ -456,9 +467,18 @@ const Navbar = () => {
                                         <>
                                             <div className="px-4 py-3 border-b border-gray-100">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="h-12 w-12 rounded-full bg-[#0096b1]/5 text-[#0096b1] flex items-center justify-center font-bold text-lg">
-                                                        {username.charAt(0).toUpperCase()}
-                                                    </div>
+                                                    {avatarUrl ? (
+                                                        <img
+                                                            src={avatarUrl}
+                                                            alt={username}
+                                                            onError={() => setAvatarUrl(null)}
+                                                            className="h-12 w-12 rounded-full object-cover"
+                                                        />
+                                                    ) : (
+                                                        <div className="h-12 w-12 rounded-full bg-[#0096b1]/5 text-[#0096b1] flex items-center justify-center font-bold text-lg">
+                                                            {username.charAt(0).toUpperCase()}
+                                                        </div>
+                                                    )}
                                                     <div className="flex flex-col">
                                                         <span className="font-medium text-gray-800">{username}</span>
                                                         <span className="text-xs text-gray-500">
@@ -598,9 +618,18 @@ const Navbar = () => {
                                 {username && (
                                     <div className="pt-2 border-t border-gray-100 mt-2">
                                         <div className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 bg-gray-50 rounded-lg mb-2">
-                                            <div className="w-8 h-8 bg-[#0096b1] rounded-full flex items-center justify-center">
-                                                <User size={16} className="text-white" />
-                                            </div>
+                                            {avatarUrl ? (
+                                                <img
+                                                    src={avatarUrl}
+                                                    alt={username}
+                                                    onError={() => setAvatarUrl(null)}
+                                                    className="w-8 h-8 rounded-full object-cover"
+                                                />
+                                            ) : (
+                                                <div className="w-8 h-8 bg-[#0096b1] rounded-full flex items-center justify-center">
+                                                    <User size={16} className="text-white" />
+                                                </div>
+                                            )}
                                             <span className="font-medium">{username}</span>
                                         </div>
 
