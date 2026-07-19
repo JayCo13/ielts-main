@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import EditProfile from './EditProfile';
+import ChangePassword from './ChangePassword';
 import ExamHistory from './ExamHistory';
 import Navbar from './Navbar';
-import { User, Edit, History, ChevronLeft, ChevronRight, BarChart, Headphones, PenTool, ArrowLeft, ArrowRight } from 'lucide-react';
+import { User, Edit, History, ChevronLeft, ChevronRight, BarChart, Headphones, PenTool, ArrowLeft, ArrowRight, KeyRound } from 'lucide-react';
 import { API_BASE } from '../config/api';
 
 const ProfilePage = () => {
@@ -96,6 +97,8 @@ const ProfilePage = () => {
     switch (activeView) {
       case 'edit':
         return <EditProfile onProfileUpdate={fetchData} />;
+      case 'password':
+        return <ChangePassword />;
       case 'history':
         return <ExamHistory />;
       default:
@@ -413,6 +416,16 @@ const ProfilePage = () => {
                 >
                   <Edit className="w-5 h-5 min-w-5" />
                   {!menuCollapsed && <span>Chỉnh sửa hồ sơ</span>}
+                </div>
+                <div
+                  className={`flex items-center gap-3 p-2 cursor-pointer rounded-lg hover:bg-gray-50 ${
+                    activeView === 'password' ? 'text-[#0096b1] bg-[#0096b1]-50' : 'text-gray-600'
+                  }`}
+                  onClick={() => setActiveView('password')}
+                  title={menuCollapsed ? "Đổi mật khẩu" : ""}
+                >
+                  <KeyRound className="w-5 h-5 min-w-5" />
+                  {!menuCollapsed && <span>Đổi mật khẩu</span>}
                 </div>
               </nav>
             </div>
