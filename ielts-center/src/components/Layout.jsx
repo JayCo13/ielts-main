@@ -27,7 +27,7 @@ function SidebarContent({ nav, onNavigate }) {
               `group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${
                 isActive
                   ? 'bg-brand-500 text-white shadow-sm'
-                  : 'text-white/70 hover:bg-white/10 hover:text-white'
+                  : 'text-white/70 hover:bg-white hover:text-slate2'
               }`
             }
           >
