@@ -6,13 +6,42 @@ Security: HMAC_SHA256 checksum verification, amount validation, idempotency.
 from fastapi import APIRouter, Depends, Request, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models.models import PackageTransaction, VIPSubscription, User
+from app.models.models import PackageTransaction, VIPSubscription, User, CenterWalletTransaction, Center
 from app.utils.payos_service import verify_webhook
 from app.utils.datetime_utils import get_vietnam_time
 import logging
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+def _handle_center_deposit(db, center_txn, webhook_data, webhook_amount):
+    """Credit a center's wallet when its PayOS top-up succeeds. Idempotent."""
+    if center_txn.status == "completed":
+        logger.info(f"PayOS webhook: center deposit {center_txn.transaction_id} already completed, skipping")
+        return {"error": 0, "message": "ok"}
+
+    if webhook_amount is not None and int(webhook_amount) != int(center_txn.amount):
+        logger.warning(
+            f"PayOS webhook: center deposit amount mismatch order={center_txn.payos_order_code}. "
+            f"Expected={int(center_txn.amount)}, Got={int(webhook_amount)}"
+        )
+        raise HTTPException(status_code=400, detail="Amount mismatch")
+
+    is_success = str(getattr(webhook_data, 'code', None)) == "00"
+    if is_success:
+        center = db.query(Center).filter(Center.center_id == center_txn.center_id).first()
+        if center:
+            center.wallet_balance += center_txn.amount
+            center.wallet_deposited += center_txn.amount
+        center_txn.status = "completed"
+        db.commit()
+        logger.info(f"PayOS center deposit SUCCESS: txn={center_txn.transaction_id}, amount={center_txn.amount}")
+    else:
+        center_txn.status = "reject"
+        db.commit()
+        logger.info(f"PayOS center deposit FAILED: txn={center_txn.transaction_id}")
+    return {"error": 0, "message": "ok"}
 
 
 @router.post("/payos/webhook")
@@ -60,8 +89,14 @@ async def payos_webhook(request: Request, db: Session = Depends(get_db)):
         transaction = db.query(PackageTransaction).filter(
             PackageTransaction.payos_order_code == int(order_code)
         ).first()
-        
+
         if not transaction:
+            # Might be a Center wallet top-up rather than a VIP package purchase.
+            center_txn = db.query(CenterWalletTransaction).filter(
+                CenterWalletTransaction.payos_order_code == int(order_code)
+            ).first()
+            if center_txn:
+                return _handle_center_deposit(db, center_txn, webhook_data, webhook_amount)
             logger.warning(f"PayOS webhook: no transaction found for orderCode={order_code}")
             raise HTTPException(status_code=404, detail="Transaction not found")
         
