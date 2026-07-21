@@ -96,6 +96,37 @@
   border: 2px solid cadetblue;
 }
 
+/* Vertical split (mobile): the divider is a thin HORIZONTAL bar, not a
+   full-height column. Without this override it inherits `.gutter { height:100% }`
+   above and blows up into a giant gray block on phones. */
+.gutter.gutter-vertical {
+  cursor: row-resize;
+  width: 100% !important;
+  height: 10px !important;
+  margin: 0;
+  position: relative;
+  background-color: #d1d5db !important;
+  border-top: 1px solid #9ca3af;
+  border-bottom: 1px solid #9ca3af;
+}
+
+.gutter.gutter-vertical::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 40px;
+  height: 4px;
+  background-color: #6b7280;
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+.gutter.gutter-vertical:hover {
+  background-color: cadetblue !important;
+}
+
 .split-container {
   display: flex;
   width: 100%;
