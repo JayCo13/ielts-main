@@ -17,6 +17,7 @@ from .student.vocabulary_routes import router as vocabulary_router
 from .student.dictation_routes import router as student_dictation_router
 from .student.translate_routes import router as student_translate_router
 from .seo.seo_pages import router as seo_router
+from .center import router as center_router
 
 router = APIRouter()
 
@@ -41,4 +42,6 @@ router.include_router(student_translate_router, prefix="/student", tags=["studen
 # Public, no-auth, server-rendered SEO landing pages + dynamic sitemap.
 # Mounted at root so nginx serves them from the main domain (/de-thi/*, /sitemap.xml).
 router.include_router(seo_router, tags=["seo"])
+# Center (Trung tâm) management — routes carry their own /admin/... and /center/... prefixes.
+router.include_router(center_router)
 

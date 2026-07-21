@@ -14,7 +14,7 @@ class User(Base):
     email = Column(String(100), unique=True, index=True)
     is_active = Column(Boolean, default=True)
     is_active_student = Column(Boolean, default=False)
-    role = Column(Enum('admin', 'student', 'customer', name='role_types'))
+    role = Column(Enum('admin', 'student', 'customer', 'center', 'teacher', name='role_types'))
     created_at = Column(DateTime, default=lambda: get_vietnam_time().replace(tzinfo=None))
     image_url = Column(String(255), nullable=True)
     status = Column(Enum('online', 'offline', name='user_status'), default='offline')
@@ -447,7 +447,7 @@ class StudentImportantWord(Base):
 
 class EmailBroadcast(Base):
     __tablename__ = 'email_broadcasts'
-    
+
     id = Column(Integer, primary_key=True, autoincrement=True)
     subject = Column(String(500), nullable=False)
     body_html = Column(LONGTEXT, nullable=False)
@@ -459,4 +459,142 @@ class EmailBroadcast(Base):
     created_by = Column(Integer, ForeignKey('users.user_id'), nullable=True)
     created_at = Column(DateTime, default=lambda: get_vietnam_time().replace(tzinfo=None))
     completed_at = Column(DateTime, nullable=True)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Center (Trung tâm) management — 3-level org: Center → Teacher → Student.
+# A Center owns a login User (role='center'), a wallet, teachers/students
+# (Users linked via CenterMembership) and classrooms. Teachers use role
+# 'teacher' (exam access like a VIP customer); center-managed students stay
+# role 'customer' and depend purely on VIP the center buys (no 90-day window).
+# ─────────────────────────────────────────────────────────────────────────────
+
+class Center(Base):
+    __tablename__ = 'centers'
+
+    center_id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.user_id'), nullable=False, unique=True)  # login account, role='center'
+    name = Column(String(200), nullable=False)
+    logo_url = Column(String(255), nullable=True)
+    # Wallet (VND). balance = deposited - used (kept explicit for auditing).
+    wallet_balance = Column(Float, default=0, nullable=False)
+    wallet_deposited = Column(Float, default=0, nullable=False)   # cumulative topped up
+    wallet_used = Column(Float, default=0, nullable=False)        # cumulative spent
+    # Tiered VIP discount, derived from cumulative purchase count:
+    #   count 1-5 -> 0%, 6-20 -> 5%, 21+ -> 10%
+    vip_purchase_count = Column(Integer, default=0, nullable=False)
+    discount_rate = Column(Float, default=0, nullable=False)      # current %, cached from count
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=lambda: get_vietnam_time().replace(tzinfo=None))
+
+    user = relationship("User")
+
+
+class Classroom(Base):
+    __tablename__ = 'classrooms'
+
+    class_id = Column(Integer, primary_key=True, index=True)
+    center_id = Column(Integer, ForeignKey('centers.center_id'), nullable=False)
+    name = Column(String(200), nullable=False)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=lambda: get_vietnam_time().replace(tzinfo=None))
+
+    center = relationship("Center")
+
+
+class CenterMembership(Base):
+    """Links a teacher/student User to a Center. One row per user per center."""
+    __tablename__ = 'center_memberships'
+
+    membership_id = Column(Integer, primary_key=True, index=True)
+    center_id = Column(Integer, ForeignKey('centers.center_id'), nullable=False)
+    user_id = Column(Integer, ForeignKey('users.user_id'), nullable=False)
+    member_type = Column(Enum('teacher', 'student', name='center_member_types'), nullable=False)
+    is_paused = Column(Boolean, default=False)     # tạm dừng (temporarily suspended)
+    is_disabled = Column(Boolean, default=False)   # vô hiệu hoá (deactivated)
+    created_at = Column(DateTime, default=lambda: get_vietnam_time().replace(tzinfo=None))
+
+    center = relationship("Center")
+    user = relationship("User")
+
+    __table_args__ = (
+        {'mysql_charset': 'utf8mb4'},
+    )
+
+
+class ClassMember(Base):
+    """Many-to-many: which users (teachers or students) belong to a classroom.
+    A teacher may belong to several classes; a center-student to 0 or 1 class
+    (no row => 'khách lẻ')."""
+    __tablename__ = 'class_members'
+
+    id = Column(Integer, primary_key=True, index=True)
+    class_id = Column(Integer, ForeignKey('classrooms.class_id', ondelete='CASCADE'), nullable=False)
+    user_id = Column(Integer, ForeignKey('users.user_id', ondelete='CASCADE'), nullable=False)
+    created_at = Column(DateTime, default=lambda: get_vietnam_time().replace(tzinfo=None))
+
+    classroom = relationship("Classroom")
+    user = relationship("User")
+
+
+class CenterWalletTransaction(Base):
+    __tablename__ = 'center_wallet_transactions'
+
+    transaction_id = Column(Integer, primary_key=True, index=True)
+    center_id = Column(Integer, ForeignKey('centers.center_id'), nullable=False)
+    type = Column(Enum('deposit', 'vip_purchase', name='center_txn_types'), nullable=False)
+    amount = Column(Float, nullable=False)                 # deposit: credited; vip_purchase: charged
+    method = Column(String(50), nullable=True)            # 'payos' for deposits
+    status = Column(Enum('pending', 'completed', 'reject', name='center_txn_status'), default='pending')
+    target_user_id = Column(Integer, ForeignKey('users.user_id'), nullable=True)  # vip_purchase: who got VIP
+    package_id = Column(Integer, ForeignKey('vip_packages.package_id'), nullable=True)
+    discount_rate = Column(Float, nullable=True)          # discount applied on a vip_purchase
+    payos_order_code = Column(BigInteger, nullable=True, unique=True, index=True)
+    payos_checkout_url = Column(Text, nullable=True)
+    note = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=lambda: get_vietnam_time().replace(tzinfo=None))
+
+    center = relationship("Center")
+
+
+class ChatMessage(Base):
+    """Teacher<->student direct messages and teacher->class messages.
+    is_pinned marks an important/homework message that shouldn't scroll away."""
+    __tablename__ = 'chat_messages'
+
+    message_id = Column(Integer, primary_key=True, index=True)
+    center_id = Column(Integer, ForeignKey('centers.center_id'), nullable=False, index=True)
+    sender_id = Column(Integer, ForeignKey('users.user_id'), nullable=False)
+    scope = Column(Enum('direct', 'class', name='chat_scopes'), nullable=False)
+    class_id = Column(Integer, ForeignKey('classrooms.class_id'), nullable=True, index=True)   # scope='class'
+    recipient_id = Column(Integer, ForeignKey('users.user_id'), nullable=True)                 # scope='direct'
+    content = Column(Text, nullable=False)
+    is_pinned = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=lambda: get_vietnam_time().replace(tzinfo=None), index=True)
+
+    center = relationship("Center")
+    sender = relationship("User", foreign_keys=[sender_id])
+    recipient = relationship("User", foreign_keys=[recipient_id])
+    classroom = relationship("Classroom")
+
+
+class ExamProgress(Base):
+    """Live exam-taking heartbeat for the teacher realtime dashboard. One row
+    per user (upserted); Redis is the fast read path, this table is durability."""
+    __tablename__ = 'exam_progress'
+
+    progress_id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.user_id'), nullable=False, unique=True, index=True)
+    center_id = Column(Integer, ForeignKey('centers.center_id'), nullable=True, index=True)
+    exam_id = Column(Integer, nullable=True)
+    skill = Column(String(30), nullable=True)             # listening/reading/writing/speaking
+    title = Column(String(255), nullable=True)            # e.g. "Part 1: Chicken"
+    questions_done = Column(Integer, default=0)
+    total_questions = Column(Integer, nullable=True)
+    last_question = Column(Integer, nullable=True)
+    is_active = Column(Boolean, default=True)             # currently in an exam
+    started_at = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, default=lambda: get_vietnam_time().replace(tzinfo=None))
+
+    user = relationship("User")
 
