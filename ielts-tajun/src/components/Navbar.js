@@ -141,10 +141,11 @@ const Navbar = () => {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className={`flex justify-between items-center w-full mx-auto sticky top-0 z-50 transition-all duration-300 ${isScrolled ? 'py-0.5 bg-[#0096b1]/80 backdrop-blur-md shadow-lg' : 'py-2 bg-[#0096b1]'
+            className={`flex justify-between items-center w-full mx-auto sticky top-0 transition-all duration-300 ${isMobileMenuOpen ? 'z-[1000]' : 'z-50'
+                } ${isScrolled ? 'py-0.5 bg-[#0096b1]/80 backdrop-blur-md shadow-lg' : 'py-2 bg-[#0096b1]'
                 }`}
         >
-            <div className="max-w-7xl w-full mx-auto px-4 flex justify-between items-center">
+            <div className="max-w-7xl w-full mx-auto px-4 flex justify-between items-center relative z-50">
                 <div className={`w-32 flex items-center transition-all duration-300 ${isScrolled ? 'scale-75' : 'scale-100'
                     }`}>
                     <Link to="/">
@@ -576,14 +577,24 @@ const Navbar = () => {
             {/* Mobile menu */}
             <AnimatePresence>
                 {isMobileMenuOpen && (
-                    <motion.div
-                        ref={mobileMenuRef}
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        transition={{ duration: 0.3 }}
-                        className="md:hidden bg-white w-full absolute top-full left-0 border-t border-gray-100 shadow-lg z-40"
-                    >
+                    <>
+                        {/* Backdrop: dims + blocks everything below the navbar (floating icons, ads) */}
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="md:hidden fixed inset-0 top-0 bg-black/40 z-40"
+                            onClick={() => setIsMobileMenuOpen(false)}
+                        />
+                        <motion.div
+                            ref={mobileMenuRef}
+                            initial={{ opacity: 0, y: -8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -8 }}
+                            transition={{ duration: 0.25 }}
+                            className="md:hidden bg-white w-full absolute top-full left-0 border-t border-gray-100 shadow-lg z-50 max-h-[calc(100dvh-64px)] overflow-y-auto overscroll-contain"
+                        >
                         <div className="max-w-7xl mx-auto px-4 py-2">
                             <div className="flex flex-col space-y-1">
                                 {[
@@ -708,7 +719,8 @@ const Navbar = () => {
                                 )}
                             </div>
                         </div>
-                    </motion.div>
+                        </motion.div>
+                    </>
                 )}
             </AnimatePresence>
         </motion.nav>
