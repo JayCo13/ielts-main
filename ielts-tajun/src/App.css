@@ -535,8 +535,9 @@
 
 .fb-messenger-tooltip {
   position: absolute;
-  top: -40px;
-  right: 0;
+  top: 50%;
+  right: 100%;
+  margin-right: 12px;
   background-color: #fff;
   color: #333;
   padding: 6px 12px;
@@ -545,7 +546,7 @@
   font-weight: 500;
   box-shadow: 0 4px 8px rgba(0,0,0,0.1);
   opacity: 0;
-  transform: translateY(10px);
+  transform: translateY(-50%) translateX(10px);
   pointer-events: none;
   transition: all 0.3s ease;
   white-space: nowrap;
@@ -553,7 +554,7 @@
 
 .fb-messenger-icon:hover .fb-messenger-tooltip {
   opacity: 1;
-  transform: translateY(0);
+  transform: translateY(-50%) translateX(0);
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
