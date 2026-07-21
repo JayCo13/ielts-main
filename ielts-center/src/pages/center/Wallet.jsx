@@ -19,6 +19,19 @@ export default function WalletPage() {
   }
   useEffect(() => { load().finally(() => setLoading(false)) }, [])
 
+  // Handle the redirect back from PayOS (success / cancel).
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search)
+    const cancelled = sp.get('deposit') === 'cancel' || sp.get('cancel') === 'true' || sp.get('status') === 'CANCELLED'
+    const paid = sp.get('deposit') === 'success' || sp.get('status') === 'PAID' || sp.get('code') === '00'
+    if (cancelled || paid) {
+      if (paid) toast.success('Thanh toán thành công! Ví sẽ được cập nhật trong giây lát.')
+      else toast('Đã huỷ nạp tiền', { icon: '⚠️' })
+      window.history.replaceState({}, '', '/wallet')
+      load()
+    }
+  }, [])
+
   if (loading) return <Loading />
   if (!me) return null
 
@@ -89,7 +102,7 @@ function DepositModal({ onClose }) {
     if (amount < 10000) { toast.error('Số tiền tối thiểu 10.000₫'); return }
     setSaving(true)
     try {
-      const r = await api.post('/center/wallet/deposit', { amount: Number(amount) })
+      const r = await api.post('/center/wallet/deposit', { amount: Number(amount), origin: window.location.origin })
       toast.success('Đang chuyển tới trang thanh toán…')
       window.location.href = r.checkoutUrl
     } catch (err) { toast.error(err.message); setSaving(false) }
@@ -100,9 +113,14 @@ function DepositModal({ onClose }) {
         <button className="btn-ghost px-4 py-2.5" onClick={onClose}>Huỷ</button>
         <button className="btn-primary px-4 py-2.5" onClick={submit} disabled={saving}>{saving ? <Spinner className="h-5 w-5" /> : 'Tới thanh toán'}</button>
       </>}>
-      <Field label="Số tiền (₫)">
-        <input className="input text-lg font-semibold" type="number" min={10000} step={10000} value={amount}
-               onChange={(e) => setAmount(e.target.value)} />
+      <Field label="Số tiền">
+        <div className="relative">
+          <input className="input text-xl font-bold pr-9" inputMode="numeric"
+                 value={amount ? Number(amount).toLocaleString('vi-VN') : ''}
+                 onChange={(e) => setAmount(Number(e.target.value.replace(/\D/g, '')) || 0)}
+                 placeholder="0" />
+          <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-semibold">₫</span>
+        </div>
       </Field>
       <div className="flex flex-wrap gap-2 mt-3">
         {QUICK.map((v) => (

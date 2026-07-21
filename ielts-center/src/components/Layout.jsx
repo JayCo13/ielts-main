@@ -8,11 +8,11 @@ const LOGO = 'https://thiieltstrenmay.com/img/logo-ielts.png'
 
 function SidebarContent({ nav, onNavigate }) {
   return (
-    <div className="flex h-full flex-col bg-gradient-to-b from-slate2 to-deep text-white">
-      <div className="flex items-center gap-3 px-5 h-16 shrink-0 border-b border-white/10">
-        <img src={LOGO} alt="logo" className="h-9 w-9 rounded-lg bg-white/10 object-contain" />
+    <div className="flex h-full flex-col bg-gradient-to-b from-[#1c2b2e] to-[#0d1719] text-white">
+      <div className="flex items-center gap-3 px-5 h-[68px] shrink-0 border-b border-white/10">
+        <img src={LOGO} alt="logo" className="h-12 w-12 rounded-xl bg-white p-1 object-contain shadow-sm" />
         <div className="leading-tight">
-          <div className="font-extrabold text-[15px]">Trung tâm</div>
+          <div className="font-extrabold text-base">Trung tâm</div>
           <div className="text-[11px] text-white/60">Thi IELTS Trên Máy</div>
         </div>
       </div>
@@ -71,7 +71,7 @@ export default function Layout({ nav, title }) {
 
       <div className="lg:pl-64">
         {/* Topbar */}
-        <header className="sticky top-0 z-20 h-16 bg-white/80 backdrop-blur border-b border-slate-100 flex items-center gap-3 px-4 sm:px-6">
+        <header className="sticky top-0 z-20 h-[68px] bg-white border-b border-slate-200 flex items-center gap-3 px-4 sm:px-6">
           <button onClick={() => setOpen(true)} className="lg:hidden h-9 w-9 grid place-items-center rounded-lg hover:bg-slate-100 text-slate-600">
             <Menu className="h-5 w-5" />
           </button>

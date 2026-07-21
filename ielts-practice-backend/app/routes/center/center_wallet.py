@@ -9,14 +9,14 @@ Flow:
     VIP granted directly (no second payment). Each purchase increments the
     center's cumulative count, which drives the 0/5/10% discount tier.
 """
-import os
 import time
 from datetime import timedelta
+from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
-from typing import List
+from typing import List, Optional
 
 from app.database import get_db
 from app.models.models import (
@@ -39,6 +39,22 @@ def _now():
 
 class DepositRequest(BaseModel):
     amount: int = Field(..., ge=10000)   # VND, min 10k
+    origin: Optional[str] = None         # caller's site origin, to return to after PayOS
+
+
+def _return_urls(origin: Optional[str]):
+    """Build PayOS return/cancel URLs on the CENTER site (so cancelling returns
+    to the center dashboard, not the student site). Only trust an origin whose
+    host is thiieltstrenmay.com or a subdomain of it."""
+    base = "https://trungtam.thiieltstrenmay.com"
+    if origin:
+        try:
+            host = (urlparse(origin).hostname or "").lower()
+            if host == "thiieltstrenmay.com" or host.endswith(".thiieltstrenmay.com"):
+                base = origin.rstrip("/")
+        except Exception:
+            pass
+    return f"{base}/wallet?deposit=success", f"{base}/wallet?deposit=cancel"
 
 
 @router.post("/center/wallet/deposit", response_model=dict)
@@ -64,8 +80,7 @@ async def deposit(request: DepositRequest,
     db.commit()
 
     try:
-        return_url = os.getenv("PAYOS_RETURN_URL", "https://thiieltstrenmay.com/payment-success")
-        cancel_url = os.getenv("PAYOS_CANCEL_URL", "https://thiieltstrenmay.com/payment-cancel")
+        return_url, cancel_url = _return_urls(request.origin)
         payos_response = create_payment_link(
             order_code=order_code,
             amount=int(request.amount),
