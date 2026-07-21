@@ -459,10 +459,10 @@ const Navbar = () => {
                                             src={avatarUrl}
                                             alt={username}
                                             onError={() => setAvatarUrl(null)}
-                                            className="hidden sm:block h-9 w-9 rounded-full object-cover border border-white/30"
+                                            className="hidden sm:block h-11 w-11 lg:h-12 lg:w-12 rounded-full object-cover border border-white/30"
                                         />
                                     ) : (
-                                        <div className="hidden sm:flex h-9 w-9 rounded-full bg-[#ffffff]/15 text-white items-center justify-center font-medium text-base">
+                                        <div className="hidden sm:flex h-11 w-11 lg:h-12 lg:w-12 rounded-full bg-[#ffffff]/15 text-white items-center justify-center font-medium text-lg">
                                             {username.charAt(0).toUpperCase()}
                                         </div>
                                     )}
