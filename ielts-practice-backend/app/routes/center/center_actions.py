@@ -9,11 +9,63 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
 
+from datetime import timedelta
+
 from app.database import get_db
-from app.models.models import User, Center
-from app.routes.admin.auth import get_current_admin, get_current_center, pwd_context
+from app.models.models import User, Center, CenterMembership
+from app.routes.admin.auth import (
+    get_current_admin, get_current_center, pwd_context,
+    create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES,
+)
 
 router = APIRouter()
+
+
+class CenterLoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+@router.post("/center/login", response_model=dict)
+async def center_login(request: CenterLoginRequest, db: Session = Depends(get_db)):
+    """Login for the center-management dashboard (center admins and teachers).
+
+    Unlike the exam-taking /login, this does NOT do single-session/device
+    binding — a center admin may work in several tabs, and a teacher is also
+    logged into the exam app; neither should trip account-sharing detection.
+    Returns the dashboard role ('center' or 'teacher') for client routing.
+    """
+    user = db.query(User).filter(User.username == request.username).first()
+    if not user or not pwd_context.verify(request.password, user.password):
+        raise HTTPException(status_code=401, detail="Sai tên đăng nhập hoặc mật khẩu")
+    if not user.is_active:
+        raise HTTPException(status_code=403, detail="Tài khoản đã bị khoá hoặc tạm dừng")
+
+    dashboard_role = None
+    if user.role == "center":
+        dashboard_role = "center"
+    else:
+        teacher_m = db.query(CenterMembership).filter(
+            CenterMembership.user_id == user.user_id,
+            CenterMembership.member_type == "teacher",
+            CenterMembership.is_disabled == False,
+        ).first()
+        if teacher_m:
+            dashboard_role = "teacher"
+    if not dashboard_role:
+        raise HTTPException(status_code=403, detail="Tài khoản không có quyền truy cập trang quản lý trung tâm")
+
+    token = create_access_token(
+        data={"sub": user.username},
+        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
+    )
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "role": dashboard_role,
+        "username": user.username,
+        "user_id": user.user_id,
+    }
 
 
 def compute_discount_rate(vip_purchase_count: int) -> float:

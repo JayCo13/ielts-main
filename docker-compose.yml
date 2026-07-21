@@ -16,6 +16,7 @@ services:
       - backend
       - admin-ui
       - user-ui
+      - center-ui
     networks:
       - ielts_network
     restart: always
@@ -76,6 +77,21 @@ services:
       args:
         # Prod API URL baked into the CRA bundle. Override via .env if needed.
         REACT_APP_API_BASE_URL: ${REACT_APP_API_BASE_URL:-https://api.thiieltstrenmay.com}
+    expose:
+      - "80"
+    depends_on:
+      - backend
+    networks:
+      - ielts_network
+    restart: always
+
+  # Center (Trung tâm) management dashboard — served at trungtam.thiieltstrenmay.com
+  center-ui:
+    build:
+      context: ./ielts-center
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-https://api.thiieltstrenmay.com}
     expose:
       - "80"
     depends_on:
