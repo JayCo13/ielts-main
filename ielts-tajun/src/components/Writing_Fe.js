@@ -512,7 +512,7 @@ const Writing_Fe = () => {
       <Navbar />
 
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
           <nav className="flex" aria-label="Breadcrumb">
             <ol className="flex items-center space-x-2">
               <li><Link to="/" className="text-gray-500 hover:text-[#0096b1]">Home</Link></li>
@@ -520,7 +520,7 @@ const Writing_Fe = () => {
               <li><span className="text-[#0096b1] font-medium">Writing Tests</span></li>
             </ol>
           </nav>
-          <div className="text-sm font-semibold text-red-700 mt-5">
+          <div className="text-xs sm:text-sm font-semibold text-red-700 sm:text-right sm:max-w-md">
             <p>* Nâng cấp VIP Listening và Reading để mở khóa thêm 6 lượt chấm điểm AI Writing miễn phí mỗi ngày. *</p>
             <p>* Số lượt chấm điểm bằng AI miễn phí còn lại trong ngày: {aiRemaining} *</p>
           </div>
