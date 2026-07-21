@@ -69,7 +69,6 @@ const MainLayout = () => {
   const [logoutCountdown, setLogoutCountdown] = useState(40);
   const [logoutMessage, setLogoutMessage] = useState('');
   const [resetKey, setResetKey] = useState(0); // Add reset key to force child component re-render
-  const [vipStatus, setVipStatus] = useState(null); // VIP status state
 
   // Vocabulary context menu state
   const [vocabMenu, setVocabMenu] = useState({ visible: false, x: 0, y: 0, selectedText: '' });
@@ -906,51 +905,9 @@ const MainLayout = () => {
     setAnswerData(retakeAnswerData);
   }, [isRetakeIncorrectMode, retakeAnswerData]);
 
-  // Fetch VIP status
-  useEffect(() => {
-    const fetchVipStatus = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        const userRole = localStorage.getItem('role');
-
-        // If user is not a customer, they have access to all features
-        if (userRole !== 'customer') {
-          setVipStatus({ is_subscribed: true });
-          return;
-        }
-
-        const response = await fetch(`${API_BASE}/customer/vip/subscription/status`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          setVipStatus(data);
-        } else {
-          // Fail open: if we can't confirm a non-subscription, don't blur
-          // (never wrongly hide content from a paying/VIP user).
-          setVipStatus({ is_subscribed: true });
-        }
-      } catch (error) {
-        console.error('Error fetching VIP status:', error);
-        // Fail open on network error so VIP users are never wrongly blurred.
-        setVipStatus({ is_subscribed: true });
-      }
-    };
-
-    fetchVipStatus();
-  }, []);
-
   const getCurrentSection = () => {
     return examData?.sections[currentPart - 1];
   };
-
-  // Non-VIP customers have the full-test part/passage titles blurred (kept
-  // hidden to preserve the VIP value). Only true once we've positively
-  // confirmed there is no active subscription — otherwise we never blur.
-  const isNonVip = vipStatus ? vipStatus.is_subscribed === false : false;
 
   // Handle confirm retake
   const handleRetakeConfirm = async () => {
@@ -2306,10 +2263,7 @@ const MainLayout = () => {
         >
           {/* Reading Passage */}
           <div className="border-r border-gray-300 p-4 overflow-y-auto">
-            <h1
-              className={`text-3xl font-bold mb-4 text-center ${isNonVip ? 'blur-[5px] select-none pointer-events-none' : ''}`}
-              title={isNonVip ? 'VIP cần nâng cấp để xem' : undefined}
-            >
+            <h1 className="text-3xl font-bold mb-4 text-center">
               {getCurrentSection()?.passages[0]?.title}
             </h1>
             {getCurrentSection()?.passages[0]?.content && (
