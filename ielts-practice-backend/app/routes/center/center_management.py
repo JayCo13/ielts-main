@@ -159,7 +159,9 @@ async def create_teacher(request: CreateMemberRequest,
                         current_center: User = Depends(get_current_center),
                         db: Session = Depends(get_db)):
     center = _center_of(current_center, db)
-    return _create_member(request, role="teacher", member_type="teacher", center=center, db=db)
+    # Teachers are role='customer' (take tests like a VIP customer); the
+    # member_type='teacher' membership is what marks them as a teacher.
+    return _create_member(request, role="customer", member_type="teacher", center=center, db=db)
 
 
 @router.post("/center/students", response_model=dict)

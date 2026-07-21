@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query, Request, F
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models.models import ExamSection, VIPSubscription, VIPPackage, ExamAccessType, User, UserSession, DeviceViolation, LoginCooldown
+from app.models.models import ExamSection, VIPSubscription, VIPPackage, ExamAccessType, User, UserSession, DeviceViolation, LoginCooldown, CenterMembership
 from sqlalchemy import or_, and_
 from datetime import datetime, timedelta
 import pytz
@@ -791,7 +791,9 @@ async def get_current_teacher(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ) -> User:
-    """Authenticated user whose role is 'teacher' (a center teacher account)."""
+    """Authenticated user who is a center teacher. Teachers use role='customer'
+    (so they take tests exactly like any VIP customer) and are identified by a
+    CenterMembership with member_type='teacher'."""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -806,7 +808,14 @@ async def get_current_teacher(
         raise credentials_exception
 
     user = db.query(User).filter(User.username == username).first()
-    if user is None or user.role != "teacher":
+    if user is None:
+        raise credentials_exception
+    membership = db.query(CenterMembership).filter(
+        CenterMembership.user_id == user.user_id,
+        CenterMembership.member_type == "teacher",
+        CenterMembership.is_disabled == False,
+    ).first()
+    if membership is None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only teacher accounts can perform this action"
