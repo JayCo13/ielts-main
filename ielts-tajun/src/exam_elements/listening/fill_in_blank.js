@@ -2322,6 +2322,39 @@ const ListeningTest = ({
   };
 
   // Right-click context menu handler (YouPass-style)
+  // Touch (iPad/mobile): onMouseUp never fires. Show our highlight menu from the
+  // selection rect (touch coords are unreliable) so highlighting works on iPad.
+  const handleTouchEnd = (e) => {
+    if (location?.state?.fromResultReview) return;
+    const touch = e.changedTouches && e.changedTouches[0];
+    const tx = touch ? touch.clientX : 0;
+    const ty = touch ? touch.clientY : 0;
+
+    const highlightEl = e.target.closest && e.target.closest('[data-highlight="true"]');
+    if (highlightEl && window.getSelection().toString().trim().length === 0) {
+      setHighlightMenu({ visible: true, x: tx, y: ty, selection: null, range: null, clearMode: true, clickedHighlightId: highlightEl.id });
+      return;
+    }
+
+    setTimeout(() => {
+      const selection = window.getSelection();
+      const selectionText = selection.toString().trim();
+      if (selectionText.length > 0) {
+        const range = selection.getRangeAt(0);
+        const rect = range.getBoundingClientRect();
+        setHighlightMenu({
+          visible: true,
+          x: rect.left + Math.min(rect.width / 2, 80),
+          y: rect.bottom + 8,
+          selection: selectionText,
+          range: range,
+          clearMode: false,
+          clickedHighlightId: null
+        });
+      }
+    }, 80);
+  };
+
   const handleContextMenu = (e) => {
     // Don't allow in review mode
     if (location?.state?.fromResultReview) {
@@ -3120,6 +3153,7 @@ const ListeningTest = ({
         id="ielts-content-area"
         onContextMenu={handleContextMenu}
         onMouseUp={handleTextSelection}
+        onTouchEnd={handleTouchEnd}
       >
         {renderContent()}
       </div>
@@ -3136,7 +3170,7 @@ const ListeningTest = ({
             minWidth: '160px',
           }}
         >
-          <div className="flex flex-col py-1">
+          <div className={`py-1 ${highlightMenu.clearMode ? 'flex flex-col' : 'flex flex-row items-stretch'}`}>
             {highlightMenu.clearMode ? (
               /* Clear mode: right-clicked on existing highlight */
               <>
@@ -3173,17 +3207,8 @@ const ListeningTest = ({
                   Highlight
                 </button>
                 <button
-                  onClick={handleCopy}
-                  className={`px-4 py-2.5 text-left text-sm ${colorTheme === 'black-on-white' ? 'hover:bg-gray-100 text-gray-700' : 'hover:bg-gray-700 text-gray-200'} flex items-center gap-2 transition-colors`}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                  </svg>
-                  Copy
-                </button>
-                <button
                   onClick={handleAddNote}
-                  className={`px-4 py-2.5 text-left text-sm ${colorTheme === 'black-on-white' ? 'hover:bg-gray-100 text-gray-700' : 'hover:bg-gray-700 text-gray-200'} flex items-center gap-2 transition-colors`}
+                  className={`px-4 py-2.5 text-left text-sm border-l ${colorTheme === 'black-on-white' ? 'hover:bg-gray-100 text-gray-700 border-gray-200' : 'hover:bg-gray-700 text-gray-200 border-gray-600'} flex items-center gap-2 transition-colors`}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -3193,7 +3218,7 @@ const ListeningTest = ({
                 {isTranslatorEnabled && (
                   <button
                     onClick={handleTranslate}
-                    className={`px-4 py-2.5 text-left text-sm ${colorTheme === 'black-on-white' ? 'hover:bg-gray-100 text-gray-700' : 'hover:bg-gray-700 text-gray-200'} flex items-center gap-2 transition-colors`}
+                    className={`px-4 py-2.5 text-left text-sm border-l ${colorTheme === 'black-on-white' ? 'hover:bg-gray-100 text-gray-700 border-gray-200' : 'hover:bg-gray-700 text-gray-200 border-gray-600'} flex items-center gap-2 transition-colors`}
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />

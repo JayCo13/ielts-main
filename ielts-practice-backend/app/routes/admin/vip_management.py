@@ -169,7 +169,9 @@ async def get_all_subscriptions(
         result.append({
             "subscription_id": s.subscription_id,
             "user_id": s.user_id,
-            "user_email": s.user.email,
+            # Center-managed teachers/students may have no email — fall back to
+            # the username so the admin list still shows who this is.
+            "user_email": s.user.email or s.user.username,
             "username": s.user.username,
             "package": package_info,
             "start_date": s.start_date,

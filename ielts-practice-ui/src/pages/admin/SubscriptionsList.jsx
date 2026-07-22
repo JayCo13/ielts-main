@@ -76,8 +76,10 @@ const SubscriptionsList = () => {
       return sub.payment_status === filterStatus;
     })
     .filter(sub =>
-      sub.user_email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      sub.package.name.toLowerCase().includes(searchTerm.toLowerCase())
+      // Center-managed teachers/students can have no email → guard against null
+      // (an unguarded null.toLowerCase() here blanked the whole page).
+      (sub.user_email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (sub.package?.name || '').toLowerCase().includes(searchTerm.toLowerCase())
     )
     .sort((a, b) => {
       if (!sortConfig.key) return 0;
@@ -203,7 +205,7 @@ const SubscriptionsList = () => {
                 {currentItems.map((sub) => (
                   <tr key={sub.subscription_id} className="hover:bg-gray-50 cursor-pointer transition-colors" onClick={() => setSelectedSub(sub)}>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{sub.user_email}</div>
+                      <div className="text-sm font-medium text-gray-900">{sub.user_email || '—'}</div>
                       <div className="text-xs text-gray-500">{sub.username || `ID: ${sub.user_id}`}</div>
                     </td>
                     <td className="px-6 py-4">
@@ -378,7 +380,7 @@ const SubscriptionsList = () => {
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-gray-500">Email:</span>
-                    <span className="font-medium text-gray-900 break-all ml-4 text-right">{selectedSub.user_email}</span>
+                    <span className="font-medium text-gray-900 break-all ml-4 text-right">{selectedSub.user_email || '—'}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-gray-500">User ID:</span>

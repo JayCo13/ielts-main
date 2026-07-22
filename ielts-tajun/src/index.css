@@ -487,6 +487,13 @@ table .inline-flex.flex-col {
   background-color: rgba(239, 68, 68, 0.2) !important;
 }
 
+/* Locate/search highlight (the search icon on a question) uses a yellow
+   background. Force BLACK text so it stays readable even when it lands on a
+   coloured user highlight (mắm tôm/hồng cánh sen), which forces white text. */
+.locate-highlight {
+  color: #000000 !important;
+}
+
 /* Tooltip removed to prevent duplication with toolHandlers.js implementation */
 .highlight-hover {
   background-color: rgba(239, 68, 68, 0.2) !important;

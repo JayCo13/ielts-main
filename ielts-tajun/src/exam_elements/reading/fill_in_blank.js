@@ -2679,12 +2679,60 @@ const ReadingTest = ({
         }
       };
 
+      // Touch (iPad/mobile): mouseup never fires, so wire touchend. Position the
+      // menu from the SELECTION rect (touch coords are unreliable) so our
+      // highlight menu appears on iPad the same way it does with a mouse.
+      const handlePassageTouchEnd = (e) => {
+        if (location?.state?.fromResultReview) return;
+        const touch = e.changedTouches && e.changedTouches[0];
+        const tx = touch ? touch.clientX : 0;
+        const ty = touch ? touch.clientY : 0;
+        const target = e.target;
+
+        const highlightEl = target.closest && target.closest('[data-highlight="true"]');
+        if (highlightEl && window.getSelection().toString().trim().length === 0) {
+          setHighlightMenu({ visible: true, x: tx, y: ty, selection: null, range: null, clearMode: true, clickedHighlightId: highlightEl.id });
+          return;
+        }
+        const noteEl = target.closest && target.closest('[data-note="true"]');
+        if (noteEl && window.getSelection().toString().trim().length === 0) {
+          const noteId = noteEl.dataset.noteId;
+          const savedNotes = JSON.parse(localStorage.getItem('ielts-notes') || '[]');
+          const noteData = savedNotes.find(n => n.id === noteId);
+          if (noteData) {
+            setNoteDialog({ visible: true, x: tx, y: ty, text: noteData.text, selection: null, noteId: noteId, range: null });
+          }
+          return;
+        }
+
+        // Let iOS finalize the selection, then show our menu below it.
+        setTimeout(() => {
+          const selection = window.getSelection();
+          const selectionText = selection.toString().trim();
+          if (selectionText.length > 0) {
+            const range = selection.getRangeAt(0);
+            const rect = range.getBoundingClientRect();
+            setHighlightMenu({
+              visible: true,
+              x: rect.left + Math.min(rect.width / 2, 80),
+              y: rect.bottom + 8,
+              selection: selectionText,
+              range: range,
+              clearMode: false,
+              clickedHighlightId: null
+            });
+          }
+        }, 80);
+      };
+
       passageEl.addEventListener('mouseup', handlePassageMouseUp);
       passageEl.addEventListener('contextmenu', handlePassageContextMenu);
+      passageEl.addEventListener('touchend', handlePassageTouchEnd);
 
       return () => {
         passageEl.removeEventListener('mouseup', handlePassageMouseUp);
         passageEl.removeEventListener('contextmenu', handlePassageContextMenu);
+        passageEl.removeEventListener('touchend', handlePassageTouchEnd);
       };
     };
 
@@ -3339,15 +3387,20 @@ const ReadingTest = ({
                 range.setStart(bestMatch.textNode, bestMatch.highlightIndex);
                 range.setEnd(bestMatch.textNode, bestMatch.highlightIndex + highlight.text.length);
 
-                // Check if this text is already highlighted
+                // Check if this text is already highlighted. A level-2 highlight
+                // is INTENDED to layer on top of an existing level-1 highlight
+                // (hồng cánh sen over mắm tôm) — so don't skip it; only skip a
+                // note or a duplicate non-layer (level-1) highlight. Skipping
+                // level-2 here is what made the pink disappear on review.
                 const existingHighlight = range.commonAncestorContainer.parentElement;
-                if (existingHighlight && (existingHighlight.hasAttribute('data-highlight') || existingHighlight.hasAttribute('data-note'))) {
-                  return; // Skip if already highlighted or noted
+                const restoredLevel = highlight.level === 2 ? 2 : 1;
+                if (existingHighlight && (existingHighlight.hasAttribute('data-note') ||
+                    (existingHighlight.hasAttribute('data-highlight') && restoredLevel !== 2))) {
+                  return; // Skip if noted, or a duplicate first-level highlight
                 }
 
                 // Create highlight span (preserve the saved level: 2 = pink re-highlight)
                 const span = document.createElement('span');
-                const restoredLevel = highlight.level === 2 ? 2 : 1;
                 span.className = restoredLevel === 2 ? 'ielts-highlight hl-level-2' : 'ielts-highlight hl-level-1';
                 span.setAttribute('data-highlight', 'true');
                 span.setAttribute('data-highlight-level', restoredLevel.toString());
