@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Eye, EyeOff, ArrowRight, User, Lock, Wallet, TrendingUp,
-  Users, GraduationCap, ShieldCheck, Sparkles,
+  Eye, EyeOff, ArrowRight, User, Lock,
+  Users, Wallet, LineChart,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../lib/api'
@@ -10,10 +10,12 @@ import { setSession, isAuthed, getRole } from '../lib/auth'
 import { Spinner } from '../components/ui'
 
 const LOGO = 'https://thiieltstrenmay.com/img/logo-ielts.png'
-const DOTS = {
-  backgroundImage: 'radial-gradient(rgba(255,255,255,0.10) 1px, transparent 1px)',
-  backgroundSize: '22px 22px',
-}
+
+const FEATURES = [
+  { icon: Users, text: 'Quản lý giáo viên & học viên không giới hạn' },
+  { icon: Wallet, text: 'Ví điện tử & mua VIP theo bậc chiết khấu' },
+  { icon: LineChart, text: 'Theo dõi tiến độ và tỉ lệ chính xác' },
+]
 
 export default function Login() {
   const navigate = useNavigate()
@@ -42,57 +44,43 @@ export default function Login() {
 
   return (
     <div className="min-h-screen w-full bg-gradient-to-br from-[#eef6f7] via-white to-[#f3f0ea] grid lg:grid-cols-[1.05fr_1fr]">
-      {/* ── Brand / preview panel ── */}
-      <div className="relative hidden lg:flex flex-col justify-between p-12 overflow-hidden text-white
-                      bg-gradient-to-br from-brand-600 via-slate2 to-deep">
-        <div className="absolute inset-0 opacity-60" style={DOTS} />
-        <div className="absolute -right-24 -top-24 h-80 w-80 rounded-full bg-brand-400/30 blur-3xl" />
-        <div className="absolute -left-20 bottom-0 h-72 w-72 rounded-full bg-accent/20 blur-3xl" />
+      {/* ── Brand panel ── */}
+      <div className="relative hidden lg:flex flex-col justify-between p-14 overflow-hidden text-white
+                      bg-gradient-to-br from-brand-400 via-brand-600 to-deep">
+        {/* single soft light source — no busy decoration */}
+        <div className="pointer-events-none absolute -top-1/4 -right-1/4 h-[70%] w-[70%] rounded-full
+                        bg-white/10 blur-[120px]" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/20 to-transparent" />
 
         {/* top brand */}
         <div className="relative flex items-center gap-3">
-          <img src={LOGO} className="h-12 w-12 rounded-xl bg-white p-1 object-contain shadow" alt="logo" />
-          <div className="leading-tight">
-            <div className="font-extrabold">Thi IELTS Trên Máy</div>
-            <div className="text-xs text-white/60">Trung tâm quản lý</div>
-          </div>
+          <img src={LOGO} className="h-11 w-11 rounded-xl bg-white p-1 object-contain shadow-sm" alt="logo" />
+          <span className="font-semibold tracking-tight text-[15px]">Thi IELTS Trên Máy</span>
         </div>
 
-        {/* headline + preview card */}
-        <div className="relative">
-          <div className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/90 mb-5 backdrop-blur">
-            <Sparkles className="h-3.5 w-3.5" /> Bảng điều khiển thế hệ mới
-          </div>
-          <h1 className="text-4xl font-extrabold leading-[1.15] max-w-md">
-            Vận hành trung tâm<br />mượt mà & hiện đại
+        {/* hero */}
+        <div className="relative max-w-md">
+          <h1 className="text-[44px] font-extrabold leading-[1.08] tracking-tight">
+            Trung tâm của bạn,<br />
+            <span className="text-white/60">gọn trong một nơi.</span>
           </h1>
-          <p className="mt-4 text-white/70 max-w-md">
-            Quản lý giáo viên, học viên, lớp học, ví điện tử và gói VIP — trong một giao diện duy nhất.
+          <p className="mt-6 text-white/80 text-lg leading-relaxed">
+            Một bảng điều khiển đẹp và nhanh để vận hành toàn bộ trung tâm luyện thi IELTS.
           </p>
 
-          {/* glass preview card */}
-          <div className="mt-8 max-w-sm rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 p-5 shadow-2xl">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-white/70 text-sm"><Wallet className="h-4 w-4" /> Số dư ví</div>
-              <span className="inline-flex items-center gap-1 text-xs text-emerald-300"><TrendingUp className="h-3.5 w-3.5" /> +12%</span>
-            </div>
-            <div className="text-3xl font-extrabold mt-1">12.500.000₫</div>
-            <div className="grid grid-cols-2 gap-3 mt-4">
-              <div className="rounded-xl bg-white/10 p-3">
-                <div className="flex items-center gap-1.5 text-white/60 text-xs"><GraduationCap className="h-3.5 w-3.5" /> Giáo viên</div>
-                <div className="text-xl font-bold mt-0.5">08</div>
+          <div className="mt-10 space-y-4">
+            {FEATURES.map((f) => (
+              <div key={f.text} className="flex items-center gap-4">
+                <div className="h-11 w-11 rounded-2xl bg-white/15 ring-1 ring-white/20 grid place-items-center shrink-0">
+                  <f.icon className="h-[22px] w-[22px]" />
+                </div>
+                <span className="text-white/90">{f.text}</span>
               </div>
-              <div className="rounded-xl bg-white/10 p-3">
-                <div className="flex items-center gap-1.5 text-white/60 text-xs"><Users className="h-3.5 w-3.5" /> Học viên</div>
-                <div className="text-xl font-bold mt-0.5">124</div>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
 
-        <div className="relative flex items-center gap-2 text-white/50 text-sm">
-          <ShieldCheck className="h-4 w-4" /> Bảo mật · © 2026 thiieltstrenmay.com
-        </div>
+        <div className="relative text-white/45 text-sm">© 2026 · thiieltstrenmay.com</div>
       </div>
 
       {/* ── Form panel ── */}
