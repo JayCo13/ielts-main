@@ -46,6 +46,20 @@
 }
 @media (prefers-reduced-motion: reduce) { .animated-gradient { animation: none; } }
 
+/* Login hero: floating dashboard preview */
+@keyframes floatY  { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+@keyframes floatY2 { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(9px); } }
+@keyframes pulseDot { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.9); opacity: 0.35; } }
+@keyframes drawLine { to { stroke-dashoffset: 0; } }
+.float-a { animation: floatY 6s ease-in-out infinite; }
+.float-b { animation: floatY2 5s ease-in-out infinite; animation-delay: -1s; }
+.pulse-dot { transform-box: fill-box; transform-origin: center; animation: pulseDot 2s ease-in-out infinite; }
+.draw-line { stroke-dasharray: 620; stroke-dashoffset: 620; animation: drawLine 2.2s ease forwards; }
+@media (prefers-reduced-motion: reduce) {
+  .float-a, .float-b, .pulse-dot { animation: none; }
+  .draw-line { stroke-dashoffset: 0; animation: none; }
+}
+
 /* Refined scrollbars */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: #cbd5d8; border-radius: 999px; border: 2px solid transparent; background-clip: content-box; }
