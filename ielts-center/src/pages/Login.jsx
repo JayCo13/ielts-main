@@ -41,12 +41,16 @@ export default function Login() {
 
   return (
     <div className="relative min-h-screen w-full overflow-hidden">
-      {/* Shared animated background — spans both panels so they feel connected */}
+      {/* Shared background — a subtle dot grid with a spotlight fade + one soft
+          brand glow. Restrained (single hue) but distinctive; spans both panels. */}
       <div className="fixed inset-0 -z-10 overflow-hidden bg-gradient-to-b from-slate-50 to-white">
-        <span className="aurora-blob bg-brand-300" style={{ top: '-12%', left: '2%' }} />
-        <span className="aurora-blob bg-[#b3a4ef]" style={{ top: '24%', left: '40%', animationDelay: '-8s' }} />
-        <span className="aurora-blob bg-brand-200" style={{ top: '52%', left: '66%', animationDelay: '-15s' }} />
-        <span className="aurora-blob bg-[#d8cef8]" style={{ top: '70%', left: '10%', animationDelay: '-5s' }} />
+        <div className="absolute inset-0" style={{
+          backgroundImage: 'radial-gradient(circle, rgba(43,83,86,0.09) 1.1px, transparent 1.1px)',
+          backgroundSize: '26px 26px',
+          maskImage: 'radial-gradient(ellipse 85% 75% at 42% 32%, #000 34%, transparent 100%)',
+          WebkitMaskImage: 'radial-gradient(ellipse 85% 75% at 42% 32%, #000 34%, transparent 100%)',
+        }} />
+        <div className="bg-glow bg-brand-300" style={{ width: '42rem', height: '42rem', top: '-14%', left: '24%' }} />
       </div>
 
       <div className="relative grid min-h-screen lg:grid-cols-[1.1fr_1fr]">
