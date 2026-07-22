@@ -57,7 +57,7 @@ export default function Login() {
         {/* ── Left: open onto the aurora, fully centered ── */}
         <div className="relative hidden lg:flex flex-col items-center text-center p-12 xl:p-16">
           <div className="flex items-center gap-3">
-            <img src={LOGO} className="h-11 w-11 rounded-xl object-contain" alt="logo" />
+            <img src={LOGO} className="h-14 w-14 rounded-xl object-contain" alt="logo" />
             <span className="font-semibold tracking-tight text-slate2">Thi IELTS Trên Máy</span>
           </div>
 
@@ -83,7 +83,7 @@ export default function Login() {
                         shadow-[-24px_0_70px_-30px_rgba(15,60,62,0.18)]">
           <div className="w-full max-w-md">
             <div className="flex items-center gap-3 mb-10 lg:hidden">
-              <img src={LOGO} className="h-11 w-11 rounded-xl object-contain" alt="logo" />
+              <img src={LOGO} className="h-14 w-14 rounded-xl object-contain" alt="logo" />
               <span className="font-extrabold text-lg text-slate2">Thi IELTS Trên Máy</span>
             </div>
 
