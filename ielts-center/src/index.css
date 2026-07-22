@@ -33,6 +33,24 @@
   .chip { @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold; }
 }
 
+/* Animated aurora background (login) — soft drifting blobs */
+@keyframes floatBlob {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(42px, -34px) scale(1.12); }
+  66% { transform: translate(-30px, 26px) scale(0.92); }
+}
+.aurora-blob {
+  position: absolute;
+  width: 34rem;
+  height: 34rem;
+  border-radius: 9999px;
+  filter: blur(90px);
+  opacity: 0.5;
+  animation: floatBlob 24s ease-in-out infinite;
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) { .aurora-blob { animation: none; } }
+
 /* Refined scrollbars */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: #cbd5d8; border-radius: 999px; border: 2px solid transparent; background-clip: content-box; }
