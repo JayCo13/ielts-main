@@ -33,32 +33,23 @@
   .chip { @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold; }
 }
 
-/* Smooth living gradient background (login) — soft pastel drift */
-@keyframes gradientShift {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
+/* Animated aurora background (login) — soft drifting blobs */
+@keyframes floatBlob {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(42px, -34px) scale(1.12); }
+  66% { transform: translate(-30px, 26px) scale(0.92); }
 }
-.animated-gradient {
-  background: linear-gradient(125deg, #f0f7f8 0%, #eef1fb 28%, #f4f0fa 52%, #e9f6f7 78%, #f2f4ff 100%);
-  background-size: 260% 260%;
-  animation: gradientShift 20s ease infinite;
+.aurora-blob {
+  position: absolute;
+  width: 34rem;
+  height: 34rem;
+  border-radius: 9999px;
+  filter: blur(90px);
+  opacity: 0.5;
+  animation: floatBlob 24s ease-in-out infinite;
+  will-change: transform;
 }
-@media (prefers-reduced-motion: reduce) { .animated-gradient { animation: none; } }
-
-/* Login hero: floating dashboard preview */
-@keyframes floatY  { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
-@keyframes floatY2 { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(9px); } }
-@keyframes pulseDot { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.9); opacity: 0.35; } }
-@keyframes drawLine { to { stroke-dashoffset: 0; } }
-.float-a { animation: floatY 6s ease-in-out infinite; }
-.float-b { animation: floatY2 5s ease-in-out infinite; animation-delay: -1s; }
-.pulse-dot { transform-box: fill-box; transform-origin: center; animation: pulseDot 2s ease-in-out infinite; }
-.draw-line { stroke-dasharray: 620; stroke-dashoffset: 620; animation: drawLine 2.2s ease forwards; }
-@media (prefers-reduced-motion: reduce) {
-  .float-a, .float-b, .pulse-dot { animation: none; }
-  .draw-line { stroke-dashoffset: 0; animation: none; }
-}
+@media (prefers-reduced-motion: reduce) { .aurora-blob { animation: none; } }
 
 /* Refined scrollbars */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
