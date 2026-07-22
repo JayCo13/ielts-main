@@ -1,8 +1,11 @@
+import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { LayoutDashboard, GraduationCap, Users, School, Wallet } from 'lucide-react'
 import { isAuthed, getRole } from './lib/auth'
 import Layout from './components/Layout'
-import Login from './pages/Login'
+// Login carries the Lottie (lottie-web) — lazy-load it so it doesn't weigh
+// down the dashboard bundle.
+const Login = lazy(() => import('./pages/Login'))
 import CenterOverview from './pages/center/Overview'
 import Members from './pages/center/Members'
 import Classes from './pages/center/Classes'
@@ -33,6 +36,7 @@ function Protected({ role, nav, title }) {
 
 export default function App() {
   return (
+    <Suspense fallback={<div className="min-h-screen grid place-items-center text-slate-400">Đang tải…</div>}>
     <Routes>
       <Route path="/login" element={<Login />} />
 
@@ -54,5 +58,6 @@ export default function App() {
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </Suspense>
   )
 }
