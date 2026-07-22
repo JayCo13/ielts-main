@@ -42,27 +42,25 @@ export default function Login() {
   return (
     <div className="min-h-screen w-full bg-white grid lg:grid-cols-[1.1fr_1fr]">
       {/* ── Lottie brand panel ── */}
-      <div className="relative hidden lg:flex flex-col p-12 xl:p-14 overflow-hidden lg:border-r border-slate-100
-                      bg-gradient-to-br from-brand-50 via-white to-[#f5f0e9]">
+      <div className="relative hidden lg:flex flex-col p-12 xl:p-16 lg:border-r border-slate-100
+                      bg-gradient-to-b from-slate-50 to-white">
         {/* brand top */}
         <div className="flex items-center gap-3">
           <img src={LOGO} className="h-11 w-11 rounded-xl object-contain" alt="logo" />
           <span className="font-semibold tracking-tight text-slate2">Thi IELTS Trên Máy</span>
         </div>
 
-        {/* Lottie hero + headline */}
+        {/* One left-aligned block: illustration + headline + subtitle */}
         <div className="flex-1 flex flex-col justify-center">
-          <div className="w-full grid place-items-center">
+          <div className="max-w-lg">
             {anim
-              ? <Lottie animationData={anim} loop className="w-full max-w-[540px]" />
-              : <div className="w-full max-w-[540px] aspect-[16/9] rounded-3xl bg-slate-50 animate-pulse" />}
-          </div>
-          <div className="mt-6 max-w-md">
-            <h1 className="text-[40px] font-extrabold leading-[1.1] tracking-tight text-slate2">
+              ? <Lottie animationData={anim} loop className="w-full max-w-[480px] -ml-2" />
+              : <div className="w-full max-w-[480px] aspect-[16/9] rounded-3xl bg-slate-100 animate-pulse" />}
+            <h1 className="mt-6 text-[38px] font-extrabold leading-[1.12] tracking-tight text-slate2">
               Trung tâm của bạn,<br />
               <span className="text-slate-400">gọn trong một nơi.</span>
             </h1>
-            <p className="mt-4 text-slate-500 text-lg leading-relaxed">
+            <p className="mt-4 text-slate-500 text-[17px] leading-relaxed max-w-md">
               Một bảng điều khiển đẹp và nhanh để vận hành toàn bộ trung tâm luyện thi IELTS.
             </p>
           </div>
