@@ -42,18 +42,13 @@ export default function Login() {
   return (
     <div className="relative min-h-screen w-full overflow-hidden">
       {/* Shared animated background — spans both panels so they feel connected */}
-      <div className="fixed inset-0 -z-10 overflow-hidden bg-gradient-to-b from-slate-50 to-white">
-        <span className="aurora-blob bg-brand-300" style={{ top: '-12%', left: '2%' }} />
-        <span className="aurora-blob bg-[#b3a4ef]" style={{ top: '24%', left: '40%', animationDelay: '-8s' }} />
-        <span className="aurora-blob bg-brand-200" style={{ top: '52%', left: '66%', animationDelay: '-15s' }} />
-        <span className="aurora-blob bg-[#d8cef8]" style={{ top: '70%', left: '10%', animationDelay: '-5s' }} />
-      </div>
+      <div className="animated-gradient fixed inset-0 -z-10" />
 
       <div className="relative grid min-h-screen lg:grid-cols-[1.1fr_1fr]">
         {/* ── Left: open onto the aurora, fully centered ── */}
         <div className="relative hidden lg:flex flex-col items-center text-center p-12 xl:p-16">
-          <div className="flex items-center gap-3">
-            <img src={LOGO} className="h-11 w-11 rounded-xl object-contain" alt="logo" />
+          <div className="self-start flex items-center gap-3">
+            <img src={LOGO} className="h-12 w-12 rounded-xl object-contain" alt="logo" />
             <span className="font-semibold tracking-tight text-slate2">Thi IELTS Trên Máy</span>
           </div>
 
