@@ -47,15 +47,15 @@ export default function ChatWidget() {
     }
   }, []);
 
-  // Probe once + poll for unread badge while available. Once a 403 marks the
-  // user as non-center (available === false), stop polling entirely.
+  // The widget lives ONLY inside the exam/study room — probe + poll only there.
+  // Once a 403 marks the user as non-center (available === false), stop entirely.
   useEffect(() => {
-    if (!loggedIn) { setAvailable(false); return undefined; }
+    if (!loggedIn || !onExam) return undefined;
     if (available === false) return undefined;
     loadThreads();
     const id = setInterval(loadThreads, 8000);
     return () => clearInterval(id);
-  }, [loggedIn, available, loadThreads]);
+  }, [loggedIn, onExam, available, loadThreads]);
 
   const loadMessages = useCallback(async () => {
     if (!active) return;
@@ -89,14 +89,14 @@ export default function ChatWidget() {
     } catch (e) { /* ignore */ }
   };
 
-  // Show during exams too (a teacher may message a student while watching the
-  // realtime board) — just lift it above the exam footer / Submit button.
-  if (!loggedIn || available === false || available === null) return null;
+  // Only inside the exam/study room (not marketing pages, lists or dashboard).
+  // Lifted above the exam footer / Submit button.
+  if (!loggedIn || !onExam || available === false || available === null) return null;
 
   const unreadTotal = threads.reduce((n, t) => n + (t.unread || 0), 0);
 
   return (
-    <div className={`fixed right-4 z-[1000] ${onExam ? 'bottom-24' : 'bottom-4'}`}>
+    <div className="fixed right-4 bottom-24 z-[1000]">
       {open && (
         <div className="mb-3 w-[340px] max-w-[calc(100vw-2rem)] h-[460px] max-h-[70vh] bg-white rounded-2xl shadow-2xl border border-gray-100 flex flex-col overflow-hidden">
           {/* Header */}
