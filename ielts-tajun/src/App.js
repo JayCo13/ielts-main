@@ -4,6 +4,7 @@ import { NotificationProvider } from './context/NotificationContext';
 import { initializeAuth } from './utils/authUtils';
 import { ensureNotifyPermission } from './utils/notifyPermission';
 import ChatWidget from './components/ChatWidget';
+import AnnouncementDetail from './pages/AnnouncementDetail';
 import Achievement from './components/Achievements';
 import HomePage from './components/HomePage';
 import ListeningTests from './components/Listening_Fe';
@@ -81,6 +82,7 @@ function App() {
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/about" element={<AboutUs />} />
           <Route path="/instruction" element={<Instruction />} />
+          <Route path="/thong-tin/:id" element={<AnnouncementDetail />} />
           <Route path="/achievements" element={<Achievement />} />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
           <Route path="/payment-policy" element={<PaymentPolicy />} />

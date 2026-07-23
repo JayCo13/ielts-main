@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Navbar from './Navbar';
 import Footer from './Footer';
 import { Player } from '@lottiefiles/react-lottie-player';
@@ -244,14 +244,17 @@ const AnnouncementsSection = () => {
   const ItemInner = ({ item }) => (
     <>
       <span className="text-xl leading-none shrink-0 mt-0.5">{item.icon || '•'}</span>
-      <span className={`text-gray-700 ${item.is_important ? 'font-semibold' : ''}`}>
-        {item.content}
+      <span className={`flex-1 text-gray-700 ${item.is_important ? 'font-semibold' : ''}`}>
+        {item.title || item.content}
         {item.is_important && (
           <span className="ml-2 align-middle inline-flex items-center text-[11px] font-bold text-[#eb7e37] bg-[#eb7e37]/10 rounded-full px-2 py-0.5">
             📌 Quan trọng
           </span>
         )}
       </span>
+      <svg className="w-4 h-4 text-gray-300 shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+      </svg>
     </>
   );
 
@@ -279,14 +282,19 @@ const AnnouncementsSection = () => {
               {item.link ? (
                 <a
                   href={item.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="flex items-start gap-3 px-6 py-3.5 hover:bg-[#0096b1]/5 transition-colors"
                 >
                   <ItemInner item={item} />
                 </a>
               ) : (
-                <div className="flex items-start gap-3 px-6 py-3.5">
+                <Link
+                  to={`/thong-tin/${item.announcement_id}`}
+                  className="flex items-start gap-3 px-6 py-3.5 hover:bg-[#0096b1]/5 transition-colors"
+                >
                   <ItemInner item={item} />
-                </div>
+                </Link>
               )}
             </li>
           ))}

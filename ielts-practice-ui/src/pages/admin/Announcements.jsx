@@ -2,9 +2,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Sidebar from '../../partials/Sidebar';
 import Header from '../../partials/Header';
 import { API_BASE } from '../../config/api';
+import AnnouncementEditor from '../../components/editor/AnnouncementEditor';
 
 const EMPTY_FORM = {
     icon: '📢',
+    title: '',
     content: '',
     link: '',
     is_important: false,
@@ -54,6 +56,7 @@ function Announcements() {
         setEditingId(item.announcement_id);
         setForm({
             icon: item.icon || '',
+            title: item.title || '',
             content: item.content || '',
             link: item.link || '',
             is_important: !!item.is_important,
@@ -64,8 +67,8 @@ function Announcements() {
     };
 
     const handleSave = async () => {
-        if (!form.content.trim()) {
-            alert('Nội dung không được để trống');
+        if (!form.title.trim() && !form.content.trim()) {
+            alert('Cần có tiêu đề hoặc nội dung');
             return;
         }
         setSaving(true);
@@ -82,7 +85,8 @@ function Announcements() {
                 },
                 body: JSON.stringify({
                     icon: form.icon || null,
-                    content: form.content.trim(),
+                    title: form.title ? form.title.trim() : null,
+                    content: form.content ? form.content.trim() : null,
                     link: form.link ? form.link.trim() : null,
                     is_important: form.is_important,
                     display_order: Number(form.display_order) || 0,
@@ -181,7 +185,7 @@ function Announcements() {
                                         <thead className="text-xs uppercase text-gray-400 dark:text-gray-500">
                                             <tr>
                                                 <th className="px-3 py-2 text-left">Icon</th>
-                                                <th className="px-3 py-2 text-left">Nội dung</th>
+                                                <th className="px-3 py-2 text-left">Tiêu đề</th>
                                                 <th className="px-3 py-2 text-left">Link</th>
                                                 <th className="px-3 py-2 text-center">Quan trọng</th>
                                                 <th className="px-3 py-2 text-center">Thứ tự</th>
@@ -194,7 +198,7 @@ function Announcements() {
                                                 <tr key={item.announcement_id}>
                                                     <td className="px-3 py-3 text-xl">{item.icon || '•'}</td>
                                                     <td className="px-3 py-3 text-gray-800 dark:text-gray-100 max-w-md">
-                                                        {item.content}
+                                                        {item.title || (item.content ? item.content.replace(/<[^>]*>/g, ' ').trim().slice(0, 80) : '—')}
                                                     </td>
                                                     <td className="px-3 py-3 text-gray-500 max-w-[160px] truncate">
                                                         {item.link || '—'}
@@ -248,7 +252,7 @@ function Announcements() {
             {/* Create / Edit Modal */}
             {showModal && (
                 <div className="fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-4">
-                    <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+                    <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
                         <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4">
                             {editingId ? 'Sửa Thông Tin' : 'Thêm Thông Tin'}
                         </h3>
@@ -279,18 +283,27 @@ function Announcements() {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nội dung *</label>
-                                <textarea
-                                    className="form-textarea w-full"
-                                    rows={2}
-                                    value={form.content}
-                                    onChange={(e) => setForm({ ...form, content: e.target.value })}
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tiêu đề *</label>
+                                <input
+                                    type="text"
+                                    className="form-input w-full"
+                                    value={form.title}
+                                    onChange={(e) => setForm({ ...form, title: e.target.value })}
                                     placeholder="Vd: Thêm 15 đề Reading và 10 đề Listening mới"
+                                />
+                                <p className="text-xs text-gray-400 mt-1">Tiêu đề hiển thị ở trang chủ; bấm vào sẽ mở trang đọc nội dung.</p>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nội dung (có thể chèn hình)</label>
+                                <AnnouncementEditor
+                                    value={form.content}
+                                    onChange={(html) => setForm({ ...form, content: html })}
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Link (tuỳ chọn)</label>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Link ngoài (tuỳ chọn — nếu có sẽ mở link thay vì trang đọc)</label>
                                 <input
                                     type="text"
                                     className="form-input w-full"

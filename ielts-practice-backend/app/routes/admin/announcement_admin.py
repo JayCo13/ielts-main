@@ -11,7 +11,8 @@ router = APIRouter()
 
 # ---- Schemas ----
 class AnnouncementCreate(BaseModel):
-    content: str
+    title: Optional[str] = None
+    content: Optional[str] = None
     icon: Optional[str] = None
     link: Optional[str] = None
     is_important: Optional[bool] = False
@@ -20,6 +21,7 @@ class AnnouncementCreate(BaseModel):
 
 
 class AnnouncementUpdate(BaseModel):
+    title: Optional[str] = None
     content: Optional[str] = None
     icon: Optional[str] = None
     link: Optional[str] = None
@@ -31,7 +33,8 @@ class AnnouncementUpdate(BaseModel):
 class AnnouncementResponse(BaseModel):
     announcement_id: int
     icon: Optional[str] = None
-    content: str
+    title: Optional[str] = None
+    content: Optional[str] = None
     link: Optional[str] = None
     is_important: bool
     display_order: int
@@ -46,6 +49,7 @@ def _serialize(a: Announcement) -> AnnouncementResponse:
     return AnnouncementResponse(
         announcement_id=a.announcement_id,
         icon=a.icon,
+        title=a.title,
         content=a.content,
         link=a.link,
         is_important=bool(a.is_important),
@@ -80,10 +84,13 @@ async def create_announcement(
     current_admin: User = Depends(get_current_admin),
 ):
     """Create a new homepage announcement."""
-    if not payload.content or not payload.content.strip():
-        raise HTTPException(status_code=400, detail="Nội dung không được để trống")
+    title = (payload.title or "").strip()
+    content = (payload.content or "").strip()
+    if not title and not content:
+        raise HTTPException(status_code=400, detail="Cần có tiêu đề hoặc nội dung")
     item = Announcement(
-        content=payload.content.strip(),
+        title=title or None,
+        content=content or None,
         icon=payload.icon,
         link=payload.link,
         is_important=bool(payload.is_important),
@@ -111,8 +118,10 @@ async def update_announcement(
     )
     if not item:
         raise HTTPException(status_code=404, detail="Không tìm thấy thông tin")
+    if payload.title is not None:
+        item.title = payload.title.strip() or None
     if payload.content is not None:
-        item.content = payload.content.strip()
+        item.content = payload.content.strip() or None
     if payload.icon is not None:
         item.icon = payload.icon
     if payload.link is not None:

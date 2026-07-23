@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import Optional, List
 from pydantic import BaseModel
@@ -11,10 +11,23 @@ router = APIRouter()
 class PublicAnnouncement(BaseModel):
     announcement_id: int
     icon: Optional[str] = None
-    content: str
+    title: Optional[str] = None
+    content: Optional[str] = None
     link: Optional[str] = None
     is_important: bool
     created_at: Optional[str] = None
+
+
+def _serialize(a: Announcement) -> PublicAnnouncement:
+    return PublicAnnouncement(
+        announcement_id=a.announcement_id,
+        icon=a.icon,
+        title=a.title,
+        content=a.content,
+        link=a.link,
+        is_important=bool(a.is_important),
+        created_at=a.created_at.isoformat() if a.created_at else None,
+    )
 
 
 @router.get("/announcements", response_model=List[PublicAnnouncement])
@@ -32,14 +45,21 @@ async def get_public_announcements(db: Session = Depends(get_db)):
         )
         .all()
     )
-    return [
-        PublicAnnouncement(
-            announcement_id=a.announcement_id,
-            icon=a.icon,
-            content=a.content,
-            link=a.link,
-            is_important=bool(a.is_important),
-            created_at=a.created_at.isoformat() if a.created_at else None,
+    return [_serialize(a) for a in items]
+
+
+@router.get("/announcements/{announcement_id}", response_model=PublicAnnouncement)
+async def get_public_announcement(announcement_id: int, db: Session = Depends(get_db)):
+    """Public detail of a single active announcement (for the /thong-tin/{id}
+    reading page)."""
+    a = (
+        db.query(Announcement)
+        .filter(
+            Announcement.announcement_id == announcement_id,
+            Announcement.is_active == True,  # noqa: E712
         )
-        for a in items
-    ]
+        .first()
+    )
+    if not a:
+        raise HTTPException(status_code=404, detail="Không tìm thấy thông tin")
+    return _serialize(a)

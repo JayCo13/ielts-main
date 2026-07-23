@@ -607,8 +607,9 @@ class Announcement(Base):
 
     announcement_id = Column(Integer, primary_key=True, index=True)
     icon = Column(String(16), nullable=True)          # emoji, e.g. 🔥 / 🆕 / 📅
-    content = Column(String(500), nullable=False)     # the news line
-    link = Column(String(500), nullable=True)         # optional URL the item links to
+    title = Column(String(255), nullable=True)        # headline shown on the homepage list
+    content = Column(Text, nullable=True)             # full body (rich HTML, may embed images)
+    link = Column(String(500), nullable=True)         # optional external URL (used instead of the detail page)
     is_important = Column(Boolean, default=False)     # pinned at top of the list
     display_order = Column(Integer, default=0)        # manual ordering (asc)
     is_active = Column(Boolean, default=True)
