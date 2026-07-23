@@ -214,104 +214,91 @@ const ReadingTest = ({
     }
   };
 
-  // Helper function to highlight text in an element
+  // Helper function to highlight text in an element.
+  // Robust across existing highlight/note spans: we match the locate phrase over
+  // the element's *concatenated* text (whitespace-insensitive) and wrap each
+  // overlapping text-node slice on its own, so a phrase that straddles a
+  // highlight/note boundary is still located. Uses a plain light background
+  // only — no bold, no per-character wrapping — to avoid the old
+  // "split characters / random bold" bug over highlighted text.
   const highlightTextInElement = (element, searchText) => {
-    const walker = document.createTreeWalker(
-      element,
-      NodeFilter.SHOW_TEXT,
-      null,
-      false
-    );
+    if (!searchText || !searchText.trim()) return false;
 
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null, false);
     const textNodes = [];
     let node;
     while (node = walker.nextNode()) {
       textNodes.push(node);
     }
+    if (textNodes.length === 0) return false;
 
-    let found = false;
-
-    // Try exact match first
-    for (const textNode of textNodes) {
-      const text = textNode.textContent;
-      const lowerText = text.toLowerCase();
-      const lowerSearchText = searchText.toLowerCase();
-
-      if (lowerText.includes(lowerSearchText)) {
-        const index = lowerText.indexOf(lowerSearchText);
-        const beforeText = text.substring(0, index);
-        const matchText = text.substring(index, index + searchText.length);
-        const afterText = text.substring(index + searchText.length);
-
-        const fragment = document.createDocumentFragment();
-
-        if (beforeText) {
-          fragment.appendChild(document.createTextNode(beforeText));
-        }
-
-        const highlight = document.createElement('span');
-        highlight.className = 'locate-highlight';
-        highlight.style.backgroundColor = '#ffeb3b';
-        highlight.style.padding = '2px 4px';
-        highlight.style.borderRadius = '3px';
-        highlight.style.fontWeight = 'bold';
-        highlight.style.boxShadow = '0 0 0 2px #ffc107';
-        highlight.textContent = matchText;
-
-        fragment.appendChild(highlight);
-
-        if (afterText) {
-          fragment.appendChild(document.createTextNode(afterText));
-        }
-
-        textNode.parentNode.replaceChild(fragment, textNode);
-
-        // Scroll to the highlighted text
-        setTimeout(() => {
-          highlight.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }, 100);
-
-        found = true;
-        break;
-      }
-    }
-
-    // If exact match not found, try partial matching with key words
-    if (!found) {
-      const keywords = searchText.split(' ').filter(word => word.length > 3);
-      if (keywords.length > 0) {
-        for (const textNode of textNodes) {
-          const text = textNode.textContent.toLowerCase();
-          const matchedKeywords = keywords.filter(keyword =>
-            text.includes(keyword.toLowerCase())
-          );
-
-          if (matchedKeywords.length >= Math.min(2, keywords.length)) {
-            // Highlight the entire text node if it contains multiple keywords
-            const highlight = document.createElement('span');
-            highlight.className = 'locate-highlight';
-            highlight.style.backgroundColor = '#ffeb3b';
-            highlight.style.padding = '2px 4px';
-            highlight.style.borderRadius = '3px';
-            highlight.style.fontWeight = 'bold';
-            highlight.style.boxShadow = '0 0 0 2px #ffc107';
-            highlight.textContent = textNode.textContent;
-
-            textNode.parentNode.replaceChild(highlight, textNode);
-
-            // Scroll to the highlighted text
-            setTimeout(() => {
-              highlight.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }, 100);
-
-            found = true;
-            break;
-          }
+    // Build a whitespace-collapsed, lower-cased copy of the full text plus a map
+    // from each clean-char index back to its origin (which text node + offset).
+    let clean = '';
+    const map = []; // map[i] = { nodeIndex, offset }
+    let prevSpace = false;
+    for (let ni = 0; ni < textNodes.length; ni++) {
+      const t = textNodes[ni].textContent;
+      for (let oi = 0; oi < t.length; oi++) {
+        const ch = t[oi];
+        if (/\s/.test(ch)) {
+          if (prevSpace) continue;
+          clean += ' ';
+          map.push({ nodeIndex: ni, offset: oi });
+          prevSpace = true;
+        } else {
+          clean += ch.toLowerCase();
+          map.push({ nodeIndex: ni, offset: oi });
+          prevSpace = false;
         }
       }
     }
 
-    return found;
+    const cleanSearch = searchText.replace(/\s+/g, ' ').trim().toLowerCase();
+    if (!cleanSearch) return false;
+
+    const idx = clean.indexOf(cleanSearch);
+    if (idx === -1) return false;
+
+    const startOrigin = map[idx];
+    const endOrigin = map[idx + cleanSearch.length - 1];
+    const startNodeIndex = startOrigin.nodeIndex;
+    const startOffset = startOrigin.offset;
+    const endNodeIndex = endOrigin.nodeIndex;
+    const endOffset = endOrigin.offset + 1; // exclusive
+
+    // Wrap each involved text node's slice separately. References captured up
+    // front stay valid — wrapping one text node never invalidates the others.
+    let firstHighlight = null;
+    for (let ni = startNodeIndex; ni <= endNodeIndex; ni++) {
+      const textNode = textNodes[ni];
+      const len = textNode.textContent.length;
+      const from = ni === startNodeIndex ? startOffset : 0;
+      const to = ni === endNodeIndex ? endOffset : len;
+      if (from >= to) continue;
+
+      try {
+        const range = document.createRange();
+        range.setStart(textNode, from);
+        range.setEnd(textNode, to);
+        const span = document.createElement('span');
+        span.className = 'locate-highlight';
+        span.style.backgroundColor = '#ffeb3b';
+        span.style.borderRadius = '2px';
+        range.surroundContents(span);
+        if (!firstHighlight) firstHighlight = span;
+      } catch (err) {
+        // Skip a slice that can't be wrapped cleanly rather than corrupt the DOM.
+      }
+    }
+
+    if (firstHighlight) {
+      setTimeout(() => {
+        firstHighlight.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+      return true;
+    }
+    return false;
   };
   // Add these state variables
   const [noteDialog, setNoteDialog] = useState({
@@ -330,18 +317,19 @@ const ReadingTest = ({
       return;
     }
 
-    if (highlightMenu.selection) {
-      // Store the selection properly
-      const selection = window.getSelection();
-      const range = selection.getRangeAt(0);
-
+    // Use the range captured when the menu opened (highlightMenu.range), NOT a
+    // fresh window.getSelection(): on iPad/touch, tapping "Add Note" collapses
+    // the live selection first, so getRangeAt(0) would be empty or throw — which
+    // is exactly why Add Note "didn't work" on iPad while Highlight (which reuses
+    // highlightMenu.range) did.
+    if (highlightMenu.range) {
       setNoteDialog({
         visible: true,
         x: highlightMenu.x,
         y: highlightMenu.y + 40,
         text: '',
-        selection: selection,
-        range: range.cloneRange() // Store a clone of the range
+        selection: highlightMenu.selection,
+        range: highlightMenu.range.cloneRange() // Store a clone of the range
       });
       setHighlightMenu(prev => ({ ...prev, visible: false }));
     }
@@ -2885,8 +2873,24 @@ const ReadingTest = ({
       const highlightId = `highlight-${timestamp}-${Math.random().toString(36).substring(2, 9)}`;
       span.setAttribute('id', highlightId);
 
-      // Apply the highlight
-      highlightMenu.range.surroundContents(span);
+      // Apply the highlight. surroundContents throws when the range partially
+      // selects an element — e.g. re-highlighting on top of an existing
+      // highlight to get level-2 (hồng cánh sen / pink). That throw is why pink
+      // never appeared. Fall back to extract+insert, unwrapping any inner
+      // highlight spans so the new pink span renders as one uniform colour.
+      try {
+        highlightMenu.range.surroundContents(span);
+      } catch (surroundErr) {
+        const contents = highlightMenu.range.extractContents();
+        if (contents.querySelectorAll) {
+          contents.querySelectorAll('[data-highlight="true"]').forEach(inner => {
+            while (inner.firstChild) inner.parentNode.insertBefore(inner.firstChild, inner);
+            inner.parentNode.removeChild(inner);
+          });
+        }
+        span.appendChild(contents);
+        highlightMenu.range.insertNode(span);
+      }
 
       // Create a position signature to uniquely identify this highlight's location
       const createPositionSignature = () => {
@@ -3674,7 +3678,7 @@ const ReadingTest = ({
       {highlightMenu.visible && (
         <div
           ref={menuRef}
-          className={`fixed z-[9999] shadow-xl rounded-lg overflow-hidden border ${colorTheme === 'black-on-white' ? 'bg-white border-gray-200' : 'bg-gray-800 border-gray-600'}`}
+          className="fixed z-[9999] shadow-lg rounded-lg overflow-hidden border bg-white border-gray-200"
           style={{
             left: `${Math.max(8, Math.min(highlightMenu.x, window.innerWidth - (highlightMenu.clearMode ? 200 : 320)))}px`,
             top: `${Math.min(highlightMenu.y, window.innerHeight - 200)}px`,
@@ -3689,17 +3693,17 @@ const ReadingTest = ({
               <>
                 <button
                   onClick={handleClearHighlight}
-                  className={`px-4 py-2.5 text-left text-sm ${colorTheme === 'black-on-white' ? 'hover:bg-gray-100 text-gray-700' : 'hover:bg-gray-700 text-gray-200'} flex items-center gap-2 transition-colors`}
+                  className={`px-4 py-2.5 text-left text-sm hover:bg-gray-100 text-gray-700 flex items-center gap-2 transition-colors`}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                   Clear Highlight
                 </button>
-                <div className={`mx-2 border-t ${colorTheme === 'black-on-white' ? 'border-gray-200' : 'border-gray-600'}`} />
+                <div className={`mx-2 border-t border-gray-200`} />
                 <button
                   onClick={handleClearAllHighlights}
-                  className={`px-4 py-2.5 text-left text-sm ${colorTheme === 'black-on-white' ? 'hover:bg-gray-100 text-gray-700' : 'hover:bg-gray-700 text-gray-200'} flex items-center gap-2 transition-colors`}
+                  className={`px-4 py-2.5 text-left text-sm hover:bg-gray-100 text-gray-700 flex items-center gap-2 transition-colors`}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -3712,7 +3716,7 @@ const ReadingTest = ({
               <>
                 <button
                   onClick={handleHighlight}
-                  className={`px-4 py-2.5 text-left text-sm ${colorTheme === 'black-on-white' ? 'hover:bg-yellow-50 text-gray-700' : 'hover:bg-gray-700 text-gray-200'} flex items-center gap-2 transition-colors`}
+                  className={`px-4 py-2.5 text-left text-sm hover:bg-yellow-50 text-gray-700 flex items-center gap-2 transition-colors`}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-yellow-500" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M18.5 1.5l4 4L9 19l-4 1 1-4L18.5 1.5zM2 24h20v-2H2v2z" />
@@ -3721,7 +3725,7 @@ const ReadingTest = ({
                 </button>
                 <button
                   onClick={handleAddNote}
-                  className={`px-4 py-2.5 text-left text-sm border-l ${colorTheme === 'black-on-white' ? 'hover:bg-gray-100 text-gray-700 border-gray-200' : 'hover:bg-gray-700 text-gray-200 border-gray-600'} flex items-center gap-2 transition-colors`}
+                  className={`px-4 py-2.5 text-left text-sm border-l hover:bg-gray-100 text-gray-700 border-gray-200 flex items-center gap-2 transition-colors`}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -3731,7 +3735,7 @@ const ReadingTest = ({
                 {isTranslatorEnabled && (
                   <button
                     onClick={handleTranslate}
-                    className={`px-4 py-2.5 text-left text-sm border-l ${colorTheme === 'black-on-white' ? 'hover:bg-gray-100 text-gray-700 border-gray-200' : 'hover:bg-gray-700 text-gray-200 border-gray-600'} flex items-center gap-2 transition-colors`}
+                    className={`px-4 py-2.5 text-left text-sm border-l hover:bg-gray-100 text-gray-700 border-gray-200 flex items-center gap-2 transition-colors`}
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />

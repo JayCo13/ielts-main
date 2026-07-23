@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import Navbar from './Navbar';
 import Footer from './Footer';
 import { Player } from '@lottiefiles/react-lottie-player';
@@ -11,7 +11,7 @@ import '../App.css';
 import 'swiper/css';
 import 'swiper/css/pagination';
 import 'swiper/css/effect-coverflow';
-import CircularGallery, { Card } from './CircularGallery';
+import { API_BASE } from '../config/api';
 
 const heroImages = [
   '/img/hp1.webp',
@@ -166,6 +166,146 @@ const FloatingInstructionIcon = () => {
         </div>
       </div>
     </motion.div>
+  );
+};
+
+// "Xem thành tích" moved out of the page body into a floating pill in the
+// bottom-right corner, stacked above the "Hướng dẫn sử dụng" button (same style).
+const FloatingAchievementIcon = () => {
+  const navigate = useNavigate();
+  const [showScrollTop, setShowScrollTop] = React.useState(false);
+
+  React.useEffect(() => {
+    const handleScroll = () => setShowScrollTop(window.scrollY > 300);
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Sit ~78px above the "Hướng dẫn sử dụng" icon (which is 113 / 188).
+  const bottomPx = showScrollTop ? 266 : 191;
+
+  return (
+    <motion.div
+      onClick={() => navigate('/achievements')}
+      initial={{ scale: 0 }}
+      animate={{ scale: 1 }}
+      transition={{ type: "spring", stiffness: 260, damping: 20, delay: 1.35 }}
+      whileHover={{ scale: 1.08 }}
+      whileTap={{ scale: 0.92 }}
+      style={{ bottom: `${bottomPx}px` }}
+      className="fixed right-[27px] z-[999] cursor-pointer group transition-[bottom] duration-300 ease-out"
+      role="button"
+      aria-label="Xem thành tích"
+    >
+      {/* Always-visible pill label (sits to the left of the circle) */}
+      <div className="absolute right-full top-1/2 -translate-y-1/2 mr-3 bg-white rounded-full shadow-[0_4px_14px_rgba(0,150,177,0.25)] px-4 py-2 border border-gray-100 group-hover:shadow-[0_6px_18px_rgba(0,150,177,0.4)] transition-shadow duration-300 whitespace-nowrap">
+        <span className="text-[#0096b1] font-bold text-sm">
+          Xem thành tích
+        </span>
+      </div>
+
+      {/* Circular badge with a trophy */}
+      <div className="relative">
+        <span className="absolute inset-0 rounded-full bg-[#0096b1] opacity-40 animate-ping"></span>
+        <div className="relative w-[66px] h-[66px] rounded-full bg-gradient-to-br from-[#0096b1] to-[#2b5356] shadow-[0_4px_12px_rgba(0,150,177,0.5)] flex items-center justify-center overflow-hidden border-2 border-white">
+          <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94.63 1.5 1.98 2.63 3.61 2.96V19H7v2h10v-2h-4v-3.1c1.63-.33 2.98-1.46 3.61-2.96C19.08 12.63 21 10.55 21 8V7c0-1.1-.9-2-2-2zM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8zm14 0c0 1.3-.84 2.4-2 2.82V7h2v1z" />
+          </svg>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
+// Homepage "Thông tin mới" box. Content is managed from the admin dashboard
+// (/admin/announcements) and served publicly from GET /announcements.
+// Important items are pinned to the top by the API ("không bị trôi").
+const AnnouncementsSection = () => {
+  const [items, setItems] = React.useState([]);
+  const [loaded, setLoaded] = React.useState(false);
+  const [expanded, setExpanded] = React.useState(false);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    fetch(`${API_BASE}/announcements`)
+      .then(res => (res.ok ? res.json() : []))
+      .then(data => { if (!cancelled) { setItems(Array.isArray(data) ? data : []); setLoaded(true); } })
+      .catch(() => { if (!cancelled) setLoaded(true); });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Nothing published yet → don't render an empty box.
+  if (loaded && items.length === 0) return null;
+
+  const COLLAPSED_COUNT = 4;
+  const visibleItems = expanded ? items : items.slice(0, COLLAPSED_COUNT);
+  const hasMore = items.length > COLLAPSED_COUNT;
+
+  const ItemInner = ({ item }) => (
+    <>
+      <span className="text-xl leading-none shrink-0 mt-0.5">{item.icon || '•'}</span>
+      <span className={`text-gray-700 ${item.is_important ? 'font-semibold' : ''}`}>
+        {item.content}
+        {item.is_important && (
+          <span className="ml-2 align-middle inline-flex items-center text-[11px] font-bold text-[#eb7e37] bg-[#eb7e37]/10 rounded-full px-2 py-0.5">
+            📌 Quan trọng
+          </span>
+        )}
+      </span>
+    </>
+  );
+
+  return (
+    <div className="max-w-3xl mx-auto px-4 relative z-10 py-10">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.6 }}
+        className="bg-white rounded-2xl shadow-lg border border-[#e9ecef] overflow-hidden"
+      >
+        {/* Header */}
+        <div className="flex items-center gap-3 px-6 py-4 bg-gradient-to-r from-[#0096b1]/10 via-[#2b5356]/5 to-transparent border-b border-gray-100">
+          <span className="text-2xl">📢</span>
+          <h2 className="text-lg md:text-xl font-bold text-[#2b5356] tracking-wide uppercase">
+            Thông tin mới
+          </h2>
+        </div>
+
+        {/* List */}
+        <ul className="divide-y divide-gray-100">
+          {visibleItems.map(item => (
+            <li key={item.announcement_id}>
+              {item.link ? (
+                <a
+                  href={item.link}
+                  className="flex items-start gap-3 px-6 py-3.5 hover:bg-[#0096b1]/5 transition-colors"
+                >
+                  <ItemInner item={item} />
+                </a>
+              ) : (
+                <div className="flex items-start gap-3 px-6 py-3.5">
+                  <ItemInner item={item} />
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+
+        {/* Footer / Xem tất cả */}
+        {hasMore && (
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="w-full flex items-center justify-center gap-1 px-6 py-3 text-sm font-semibold text-[#0096b1] hover:bg-[#0096b1]/5 border-t border-gray-100 transition-colors"
+          >
+            {expanded ? 'Thu gọn' : `Xem tất cả (${items.length})`}
+            <svg className={`w-4 h-4 transition-transform ${expanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+        )}
+      </motion.div>
+    </div>
   );
 };
 
@@ -449,109 +589,8 @@ const HomePage = () => {
             </svg>
           </div>
 
-          <div className="max-w-6xl mx-auto px-4 relative z-10 py-10">
-            <div className="flex flex-col md:flex-row items-center gap-5">
-              <div className="w-full md:w-1/2 space-y-4 mb-8 md:mb-0 mt-5">
-                <motion.div
-                  initial={{ opacity: 0, x: -20 }}
-                  whileInView={{ opacity: 1, x: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.6 }}
-
-                >
-                  <h1 className="text-3xl md:text-4xl font-bold mb-5 bg-gradient-to-r from-[#2b5356] via-[#0096b1] to-[#eb7e37] bg-clip-text text-transparent text-center">
-                    Check list các VIP members
-                    <span className="relative inline-block">
-                      <span className="absolute -inset-1 w-full h-full"></span>
-                      <span className="relative text-[#0096b1]">trúng tủ tại thiieltstrenmay.com</span>
-                    </span>
-                  </h1>
-                  <div className="space-y-4 bg-gradient-to-r from-white via-[#f8f9fa] to-white p-6 rounded-xl shadow-lg border border-[#e9ecef] hover:shadow-xl transition-all duration-300">
-                    <div className="flex items-start gap-4 group hover:transform hover:translate-x-2 transition-all duration-300">
-                      <div className="flex-shrink-0 w-12 h-12 bg-[#2b5356]/10 rounded-full flex items-center justify-center group-hover:bg-[#2b5356]/20 transition-colors duration-300">
-                        <svg className="w-6 h-6 text-[#2b5356]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
-                        </svg>
-                      </div>
-                      <p className="text-gray-600">Khi là thành viên VIP của thiieltstrenmay.com, bạn sẽ được "thử lửa" với những bộ đề có layout được thiết kế giống đề thi thật.</p>
-                    </div>
-                    <div className="flex items-start gap-4 group hover:transform hover:translate-x-2 transition-all duration-300">
-                      <div className="flex-shrink-0 w-12 h-12 bg-[#eb7e37]/10 rounded-full flex items-center justify-center group-hover:bg-[#eb7e37]/20 transition-colors duration-300">
-                        <svg className="w-6 h-6 text-[#eb7e37]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        </svg>
-                      </div>
-                      <p className="text-gray-600">Các thành viên VIP được tiếp cận kho đề thi phong phú, giúp nâng cao kỹ năng toàn diện và đạt được band điểm IELTS mục tiêu một cách nhanh chóng.</p>
-                    </div>
-                    <div className="flex items-start gap-4 group hover:transform hover:translate-x-2 transition-all duration-300">
-                      <div className="flex-shrink-0 w-12 h-12 bg-[#0096b1]/10 rounded-full flex items-center justify-center group-hover:bg-[#0096b1]/20 transition-colors duration-300">
-                        <svg className="w-6 h-6 text-[#0096b1]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        </svg>
-                      </div>
-                      <p className="text-gray-600">Điều này giúp bạn làm quen "sương sương" với cấu trúc, định dạng và đặc biệt là áp lực thời gian của một kỳ thi IELTS thực tế.</p>
-                    </div>
-                    <div className="flex items-start gap-4 group hover:transform hover:translate-x-2 transition-all duration-300">
-                      <div className="flex-shrink-0 w-12 h-12 bg-[#eb7e37]/10 rounded-full flex items-center justify-center group-hover:bg-[#eb7e37]/20 transition-colors duration-300">
-                        <svg className="w-6 h-6 text-[#eb7e37]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-                        </svg>
-                      </div>
-                      <p className="text-gray-600">Rất nhiều thành viên VIP đã tự tin hơn hẳn và chinh phục điểm số cao sau thời gian "luyện công" tại thiieltstrenmay.com đấy.</p>
-                    </div>
-
-                    <div className="flex items-start gap-4 group hover:transform hover:translate-x-2 transition-all duration-300">
-                      <div className="flex-shrink-0 w-12 h-12 bg-[#2b5356]/10 rounded-full flex items-center justify-center group-hover:bg-[#2b5356]/20 transition-colors duration-300">
-                        <svg className="w-6 h-6 text-[#2b5356]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path>
-                        </svg>
-                      </div>
-                      <p className="text-gray-600">Việc nâng cao kỹ năng và đạt band điểm IELTS mong muốn giờ đây thật sự trong tầm tay bạn!</p>
-                    </div>
-                  </div>
-                </motion.div>
-
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.6, delay: 0.2 }}
-                  className="flex justify-center mt-3"
-                >
-                  <Link
-                    to="/achievements"
-                    className="inline-flex items-center gap-2 mt-3 px-6 py-4 bg-gradient-to-r from-[#2b5356] to-[#0096b1] text-white rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
-                  >
-                    <span>Xem thêm thành tích</span>
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
-                    </svg>
-                  </Link>
-                </motion.div>
-              </div>
-              <div className="w-full md:w-1/2 h-[250px] md:h-[450px] relative">
-                <CircularGallery
-                  cardDistance={60}
-                  verticalDistance={70}
-                  delay={5000}
-                  pauseOnHover={false}
-                >
-                  <Card className="relative overflow-hidden h-[300px] border border-white/20">
-                    <img src="/img/hp-img1.jpg" alt="Student 1" className="w-full h-full object-cover" />
-                    <p className="absolute bottom-0 left-0 right-0 p-4 text-white text-sm italic bg-black/50 backdrop-blur-sm">"Nhờ luyện thi đều đặn trên thiieltstrenmay.com, mình không còn bị bỡ ngỡ khi bước vào phòng thi thật – mọi thứ quen thuộc như đã làm rồi vậy!"</p>
-                  </Card>
-                  <Card className="relative overflow-hidden h-[300px] border border-white/20">
-                    <img src="/img/hp-img2.jpg" alt="Student 2" className="w-full h-full object-cover" />
-                    <p className="absolute bottom-0 left-0 right-0 p-4 text-white text-sm italic bg-black/50 backdrop-blur-sm">"Giao diện y hệt thi thật và các đề real trúng tủ đã giúp mình nâng band Reading từ 6.0 lên 7.5 chỉ sau 3 tuần ôn luyện trên web"</p>
-                  </Card>
-                  <Card className="relative overflow-hidden h-[300px] border border-white/20">
-                    <img src="/img/hp-img3.jpg" alt="Student 3" className="w-full h-full object-cover" />
-                    <p className="absolute bottom-0 left-0 right-0 p-4 text-white text-sm italic bg-black/50 backdrop-blur-sm">"Thi xong mới thấy: học trên thiieltstrenmay.com là quyết định sáng suốt nhất mùa hè này 🤯 Giao diện y chang thi thật, làm riết thuộc bài luôn!"</p>
-                  </Card>
-                </CircularGallery>
-              </div>
-            </div>
-          </div>
+          {/* THÔNG TIN MỚI (dynamic, managed from admin /admin/announcements) */}
+          <AnnouncementsSection />
 
           <div className="max-w-6xl mx-auto px-4 relative z-10 py-10">
 
@@ -865,6 +904,9 @@ const HomePage = () => {
 
       {/* Floating instruction icon — links to /instruction */}
       <FloatingInstructionIcon />
+
+      {/* Floating achievement icon — links to /achievements (moved from page body) */}
+      <FloatingAchievementIcon />
 
     </div>
   );

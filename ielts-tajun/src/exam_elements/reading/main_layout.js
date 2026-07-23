@@ -197,149 +197,88 @@ const MainLayout = () => {
     }
   };
 
-  // Helper function to highlight text in an element
+  // Helper function to highlight text in an element.
+  // Robust across existing highlight/note spans: match the locate phrase over
+  // the element's concatenated text (whitespace-insensitive) and wrap each
+  // overlapping text-node slice on its own. Plain light background only — no
+  // bold, no per-character wrapping — to avoid the "split characters / random
+  // bold" bug over already-highlighted text.
   const highlightTextInElement = (element, searchText) => {
-    const walker = document.createTreeWalker(
-      element,
-      NodeFilter.SHOW_TEXT,
-      null,
-      false
-    );
+    if (!searchText || !searchText.trim()) return false;
 
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null, false);
     const textNodes = [];
     let node;
     while (node = walker.nextNode()) {
       textNodes.push(node);
     }
+    if (textNodes.length === 0) return false;
 
-    // Build a map of text content with node positions
-    let fullText = '';
-    const nodeMap = [];
-
-    textNodes.forEach(textNode => {
-      const text = textNode.textContent;
-      const startPos = fullText.length;
-      fullText += text;
-      const endPos = fullText.length;
-
-      nodeMap.push({
-        node: textNode,
-        startPos,
-        endPos,
-        text
-      });
-    });
-
-    let found = false;
-    const lowerFullText = fullText.toLowerCase();
-    const lowerSearchText = searchText.toLowerCase();
-
-    // Try exact match first across the full reconstructed text
-    const matchIndex = lowerFullText.indexOf(lowerSearchText);
-    if (matchIndex !== -1) {
-      const matchStart = matchIndex;
-      const matchEnd = matchIndex + searchText.length;
-
-      // Find which nodes contain the match
-      const affectedNodes = nodeMap.filter(nodeInfo =>
-        nodeInfo.startPos < matchEnd && nodeInfo.endPos > matchStart
-      );
-
-      if (affectedNodes.length > 0) {
-        // Process nodes from last to first to avoid DOM position issues
-        for (let i = affectedNodes.length - 1; i >= 0; i--) {
-          const nodeInfo = affectedNodes[i];
-          const nodeStart = Math.max(0, matchStart - nodeInfo.startPos);
-          const nodeEnd = Math.min(nodeInfo.text.length, matchEnd - nodeInfo.startPos);
-
-          if (nodeStart < nodeEnd) {
-            const beforeText = nodeInfo.text.substring(0, nodeStart);
-            const matchText = nodeInfo.text.substring(nodeStart, nodeEnd);
-            const afterText = nodeInfo.text.substring(nodeEnd);
-
-            const fragment = document.createDocumentFragment();
-
-            if (beforeText) {
-              fragment.appendChild(document.createTextNode(beforeText));
-            }
-
-            const highlight = document.createElement('span');
-            highlight.className = 'locate-highlight';
-            highlight.style.backgroundColor = '#ffeb3b';
-            highlight.style.padding = '2px 4px';
-            highlight.style.borderRadius = '3px';
-            highlight.style.fontWeight = 'bold';
-            highlight.style.boxShadow = '0 0 0 2px #ffc107';
-            highlight.textContent = matchText;
-            fragment.appendChild(highlight);
-
-            if (afterText) {
-              fragment.appendChild(document.createTextNode(afterText));
-            }
-
-            nodeInfo.node.parentNode.replaceChild(fragment, nodeInfo.node);
-
-            // Scroll to the first highlighted part
-            if (i === 0) {
-              setTimeout(() => {
-                highlight.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              }, 100);
-            }
-          }
-        }
-        found = true;
-      }
-    }
-
-    // If exact match not found, try partial matching with key words
-    if (!found) {
-      const keywords = searchText.split(' ').filter(word => word.length > 3);
-      if (keywords.length > 0) {
-        const matchedKeywords = keywords.filter(keyword =>
-          lowerFullText.includes(keyword.toLowerCase())
-        );
-
-        if (matchedKeywords.length >= Math.min(2, keywords.length)) {
-          // Find the best matching section by looking for nodes that contain multiple keywords
-          let bestNode = null;
-          let bestScore = 0;
-
-          for (const nodeInfo of nodeMap) {
-            const nodeText = nodeInfo.text.toLowerCase();
-            const nodeKeywords = matchedKeywords.filter(keyword =>
-              nodeText.includes(keyword.toLowerCase())
-            );
-
-            if (nodeKeywords.length > bestScore) {
-              bestScore = nodeKeywords.length;
-              bestNode = nodeInfo;
-            }
-          }
-
-          if (bestNode && bestScore > 0) {
-            const highlight = document.createElement('span');
-            highlight.className = 'locate-highlight';
-            highlight.style.backgroundColor = '#ffeb3b';
-            highlight.style.padding = '2px 4px';
-            highlight.style.borderRadius = '3px';
-            highlight.style.fontWeight = 'bold';
-            highlight.style.boxShadow = '0 0 0 2px #ffc107';
-            highlight.textContent = bestNode.text;
-
-            bestNode.node.parentNode.replaceChild(highlight, bestNode.node);
-
-            // Scroll to the highlighted text
-            setTimeout(() => {
-              highlight.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }, 100);
-
-            found = true;
-          }
+    // Whitespace-collapsed, lower-cased copy of the full text + a map from each
+    // clean-char index back to its origin (which text node + offset).
+    let clean = '';
+    const map = [];
+    let prevSpace = false;
+    for (let ni = 0; ni < textNodes.length; ni++) {
+      const t = textNodes[ni].textContent;
+      for (let oi = 0; oi < t.length; oi++) {
+        const ch = t[oi];
+        if (/\s/.test(ch)) {
+          if (prevSpace) continue;
+          clean += ' ';
+          map.push({ nodeIndex: ni, offset: oi });
+          prevSpace = true;
+        } else {
+          clean += ch.toLowerCase();
+          map.push({ nodeIndex: ni, offset: oi });
+          prevSpace = false;
         }
       }
     }
 
-    return found;
+    const cleanSearch = searchText.replace(/\s+/g, ' ').trim().toLowerCase();
+    if (!cleanSearch) return false;
+
+    const idx = clean.indexOf(cleanSearch);
+    if (idx === -1) return false;
+
+    const startOrigin = map[idx];
+    const endOrigin = map[idx + cleanSearch.length - 1];
+    const startNodeIndex = startOrigin.nodeIndex;
+    const startOffset = startOrigin.offset;
+    const endNodeIndex = endOrigin.nodeIndex;
+    const endOffset = endOrigin.offset + 1; // exclusive
+
+    let firstHighlight = null;
+    for (let ni = startNodeIndex; ni <= endNodeIndex; ni++) {
+      const textNode = textNodes[ni];
+      const len = textNode.textContent.length;
+      const from = ni === startNodeIndex ? startOffset : 0;
+      const to = ni === endNodeIndex ? endOffset : len;
+      if (from >= to) continue;
+
+      try {
+        const range = document.createRange();
+        range.setStart(textNode, from);
+        range.setEnd(textNode, to);
+        const span = document.createElement('span');
+        span.className = 'locate-highlight';
+        span.style.backgroundColor = '#ffeb3b';
+        span.style.borderRadius = '2px';
+        range.surroundContents(span);
+        if (!firstHighlight) firstHighlight = span;
+      } catch (err) {
+        // Skip a slice that can't be wrapped cleanly rather than corrupt the DOM.
+      }
+    }
+
+    if (firstHighlight) {
+      setTimeout(() => {
+        firstHighlight.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+      return true;
+    }
+    return false;
   };
 
   useEffect(() => {

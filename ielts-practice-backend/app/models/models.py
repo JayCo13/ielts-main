@@ -598,3 +598,19 @@ class ExamProgress(Base):
 
     user = relationship("User")
 
+
+class Announcement(Base):
+    """Homepage "Thông tin mới" news items, authored from the admin dashboard
+    and shown at the top of the public student landing page. `is_important`
+    pins an item to the top of the list ("không bị trôi")."""
+    __tablename__ = 'announcements'
+
+    announcement_id = Column(Integer, primary_key=True, index=True)
+    icon = Column(String(16), nullable=True)          # emoji, e.g. 🔥 / 🆕 / 📅
+    content = Column(String(500), nullable=False)     # the news line
+    link = Column(String(500), nullable=True)         # optional URL the item links to
+    is_important = Column(Boolean, default=False)     # pinned at top of the list
+    display_order = Column(Integer, default=0)        # manual ordering (asc)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=lambda: get_vietnam_time().replace(tzinfo=None))
+

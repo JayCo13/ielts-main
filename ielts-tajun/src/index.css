@@ -494,6 +494,16 @@ table .inline-flex.flex-col {
   color: #000000 !important;
 }
 
+/* iPad/iOS: suppress the native long-press callout ("Sao chép | Tra cứu | Dịch…"
+   black bar) over the reading passage so only our own Highlight/Add Note menu
+   shows. Text stays selectable (user-select: text) so highlighting still works. */
+#reading-passage-content,
+#ielts-content-area {
+  -webkit-touch-callout: none;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
 /* Tooltip removed to prevent duplication with toolHandlers.js implementation */
 .highlight-hover {
   background-color: rgba(239, 68, 68, 0.2) !important;

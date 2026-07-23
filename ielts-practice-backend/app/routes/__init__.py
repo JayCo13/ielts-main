@@ -18,6 +18,8 @@ from .student.dictation_routes import router as student_dictation_router
 from .student.translate_routes import router as student_translate_router
 from .seo.seo_pages import router as seo_router
 from .center import router as center_router
+from .admin.announcement_admin import router as announcement_admin_router
+from .customer.announcements import router as announcements_router
 
 router = APIRouter()
 
@@ -44,4 +46,8 @@ router.include_router(student_translate_router, prefix="/student", tags=["studen
 router.include_router(seo_router, tags=["seo"])
 # Center (Trung tâm) management — routes carry their own /admin/... and /center/... prefixes.
 router.include_router(center_router)
+# Homepage "Thông tin mới" announcements: admin CRUD (/admin/announcements) +
+# public no-auth read (/announcements) for the student landing page.
+router.include_router(announcement_admin_router, prefix="/admin", tags=["admin-announcement"])
+router.include_router(announcements_router, tags=["announcements"])
 

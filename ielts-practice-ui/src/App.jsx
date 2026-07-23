@@ -37,6 +37,7 @@ import SubscriptionsList from './pages/admin/SubscriptionsList';
 import DictationManagement from './pages/admin/DictationManagement';
 import RevenueAnalytics from './pages/admin/RevenueAnalytics';
 import BroadcastEmail from './pages/admin/BroadcastEmail';
+import Announcements from './pages/admin/Announcements';
 import PendingTransactions from './pages/admin/PendingTransactions';
 import ManagePartTitles from './pages/test/ManagePartTitles';
 
@@ -193,6 +194,13 @@ function App() {
         <Route path="/broadcast-email" element={
           <ProtectedRoute>
             <BroadcastEmail />
+          </ProtectedRoute>
+        } />
+
+        {/* Homepage Announcements (Thông tin mới) */}
+        <Route path="/announcements" element={
+          <ProtectedRoute>
+            <Announcements />
           </ProtectedRoute>
         } />
 
