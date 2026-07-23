@@ -167,18 +167,18 @@ const ListeningTest = ({
       return;
     }
 
-    if (highlightMenu.selection) {
-      // Store the selection properly
-      const selection = window.getSelection();
-      const range = selection.getRangeAt(0);
-
+    // Use the range captured when the menu opened (highlightMenu.range), NOT a
+    // fresh window.getSelection(): on iPad, tapping "Add Note" collapses the live
+    // selection first, so getRangeAt(0) would be empty — which is why Add Note
+    // "didn't work" on iPad while Highlight (which reuses the stored range) did.
+    if (highlightMenu.range) {
       setNoteDialog({
         visible: true,
         x: highlightMenu.x,
         y: highlightMenu.y + 40,
         text: '',
-        selection: selection,
-        range: range.cloneRange() // Store a clone of the range
+        selection: highlightMenu.selection,
+        range: highlightMenu.range.cloneRange() // snapshot clone
       });
       setHighlightMenu(prev => ({ ...prev, visible: false }));
     }
@@ -2313,7 +2313,7 @@ const ListeningTest = ({
           x: e.clientX,
           y: e.clientY,
           selection: selectionText,
-          range: range,
+          range: range.cloneRange(),
           clearMode: false,
           clickedHighlightId: null
         });
@@ -2347,7 +2347,7 @@ const ListeningTest = ({
           x: rect.left + Math.min(rect.width / 2, 80),
           y: rect.bottom + 8,
           selection: selectionText,
-          range: range,
+          range: range.cloneRange(),
           clearMode: false,
           clickedHighlightId: null
         });
@@ -2391,7 +2391,7 @@ const ListeningTest = ({
         x: e.clientX,
         y: e.clientY,
         selection: selectionText,
-        range: range,
+        range: range.cloneRange(),
         clearMode: false,
         clickedHighlightId: null
       });
@@ -2414,11 +2414,27 @@ const ListeningTest = ({
     if (!highlightMenu.range || !highlightMenu.selection) return;
 
     try {
+      // Two-level highlight (matches reading): a fresh selection is mắm tôm
+      // (level 1); re-highlighting on top of an existing highlight is hồng cánh
+      // sen (level 2 / pink). This is why Listening "chưa ra màu hồng".
+      const isInsideExistingHighlight = (() => {
+        const containers = [
+          highlightMenu.range.commonAncestorContainer,
+          highlightMenu.range.startContainer,
+          highlightMenu.range.endContainer
+        ];
+        return containers.some(node => {
+          const el = node && node.nodeType === Node.ELEMENT_NODE ? node : (node && node.parentElement);
+          return !!(el && el.closest && el.closest('[data-highlight="true"]'));
+        });
+      })();
+      const highlightLevel = isInsideExistingHighlight ? 2 : 1;
+
       // Create a new span element for the highlight
       const span = document.createElement('span');
-      span.className = colorTheme === 'black-on-white' ? 'ielts-highlight bg-yellow-200' :
-        colorTheme === 'white-on-black' ? 'ielts-highlight bg-blue-800' : 'ielts-highlight bg-blue-900';
+      span.className = highlightLevel === 2 ? 'ielts-highlight hl-level-2' : 'ielts-highlight hl-level-1';
       span.setAttribute('data-highlight', 'true');
+      span.setAttribute('data-highlight-level', highlightLevel.toString());
       span.setAttribute('data-part', currentPart.toString());
       span.setAttribute('data-timestamp', new Date().getTime());
 
@@ -2426,8 +2442,22 @@ const ListeningTest = ({
       const highlightId = `highlight-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
       span.setAttribute('id', highlightId);
 
-      // Apply the highlight
-      highlightMenu.range.surroundContents(span);
+      // Apply the highlight. surroundContents throws when re-highlighting on top
+      // of an existing highlight (to get level-2 pink) — fall back to
+      // extract+insert, unwrapping inner highlight spans so pink is uniform.
+      try {
+        highlightMenu.range.surroundContents(span);
+      } catch (surroundErr) {
+        const contents = highlightMenu.range.extractContents();
+        if (contents.querySelectorAll) {
+          contents.querySelectorAll('[data-highlight="true"]').forEach(inner => {
+            while (inner.firstChild) inner.parentNode.insertBefore(inner.firstChild, inner);
+            inner.parentNode.removeChild(inner);
+          });
+        }
+        span.appendChild(contents);
+        highlightMenu.range.insertNode(span);
+      }
 
       // Generate a unique signature for this highlight position
       const range = highlightMenu.range;
@@ -3163,7 +3193,7 @@ const ListeningTest = ({
       {highlightMenu.visible && (
         <div
           ref={menuRef}
-          className={`fixed z-50 shadow-xl rounded-lg overflow-hidden border ${colorTheme === 'black-on-white' ? 'bg-white border-gray-200' : 'bg-gray-800 border-gray-600'}`}
+          className={`fixed z-50 shadow-xl rounded-lg overflow-hidden border bg-white border-gray-200`}
           style={{
             left: `${Math.min(highlightMenu.x, window.innerWidth - 200)}px`,
             top: `${Math.min(highlightMenu.y, window.innerHeight - 200)}px`,
@@ -3176,17 +3206,17 @@ const ListeningTest = ({
               <>
                 <button
                   onClick={handleClearHighlight}
-                  className={`px-4 py-2.5 text-left text-sm ${colorTheme === 'black-on-white' ? 'hover:bg-gray-100 text-gray-700' : 'hover:bg-gray-700 text-gray-200'} flex items-center gap-2 transition-colors`}
+                  className={`px-4 py-2.5 text-left text-sm hover:bg-gray-100 text-gray-700 flex items-center gap-2 transition-colors`}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                   Clear Highlight
                 </button>
-                <div className={`mx-2 border-t ${colorTheme === 'black-on-white' ? 'border-gray-200' : 'border-gray-600'}`} />
+                <div className={`mx-2 border-t border-gray-200`} />
                 <button
                   onClick={handleClearAllHighlights}
-                  className={`px-4 py-2.5 text-left text-sm ${colorTheme === 'black-on-white' ? 'hover:bg-gray-100 text-gray-700' : 'hover:bg-gray-700 text-gray-200'} flex items-center gap-2 transition-colors`}
+                  className={`px-4 py-2.5 text-left text-sm hover:bg-gray-100 text-gray-700 flex items-center gap-2 transition-colors`}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -3199,7 +3229,7 @@ const ListeningTest = ({
               <>
                 <button
                   onClick={handleHighlight}
-                  className={`px-4 py-2.5 text-left text-sm ${colorTheme === 'black-on-white' ? 'hover:bg-yellow-50 text-gray-700' : 'hover:bg-gray-700 text-gray-200'} flex items-center gap-2 transition-colors`}
+                  className={`px-4 py-2.5 text-left text-sm hover:bg-yellow-50 text-gray-700 flex items-center gap-2 transition-colors`}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-yellow-500" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M18.5 1.5l4 4L9 19l-4 1 1-4L18.5 1.5zM2 24h20v-2H2v2z" />
@@ -3208,7 +3238,7 @@ const ListeningTest = ({
                 </button>
                 <button
                   onClick={handleAddNote}
-                  className={`px-4 py-2.5 text-left text-sm border-l ${colorTheme === 'black-on-white' ? 'hover:bg-gray-100 text-gray-700 border-gray-200' : 'hover:bg-gray-700 text-gray-200 border-gray-600'} flex items-center gap-2 transition-colors`}
+                  className={`px-4 py-2.5 text-left text-sm border-l hover:bg-gray-100 text-gray-700 border-gray-200 flex items-center gap-2 transition-colors`}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -3218,7 +3248,7 @@ const ListeningTest = ({
                 {isTranslatorEnabled && (
                   <button
                     onClick={handleTranslate}
-                    className={`px-4 py-2.5 text-left text-sm border-l ${colorTheme === 'black-on-white' ? 'hover:bg-gray-100 text-gray-700 border-gray-200' : 'hover:bg-gray-700 text-gray-200 border-gray-600'} flex items-center gap-2 transition-colors`}
+                    className={`px-4 py-2.5 text-left text-sm border-l hover:bg-gray-100 text-gray-700 border-gray-200 flex items-center gap-2 transition-colors`}
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />

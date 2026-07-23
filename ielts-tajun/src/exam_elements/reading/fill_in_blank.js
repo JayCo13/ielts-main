@@ -2623,7 +2623,7 @@ const ReadingTest = ({
               x: e.clientX,
               y: e.clientY,
               selection: selectionText,
-              range: range,
+              range: range.cloneRange(),
               clearMode: false,
               clickedHighlightId: null
             });
@@ -2660,7 +2660,7 @@ const ReadingTest = ({
             x: e.clientX,
             y: e.clientY,
             selection: selectionText,
-            range: range,
+            range: range.cloneRange(),
             clearMode: false,
             clickedHighlightId: null
           });
@@ -2705,7 +2705,7 @@ const ReadingTest = ({
               x: rect.left + Math.min(rect.width / 2, 80),
               y: rect.bottom + 8,
               selection: selectionText,
-              range: range,
+              range: range.cloneRange(),
               clearMode: false,
               clickedHighlightId: null
             });
@@ -2776,7 +2776,7 @@ const ReadingTest = ({
           x: e.clientX,
           y: e.clientY,
           selection: selectionText,
-          range: range,
+          range: range.cloneRange(),
           clearMode: false,
           clickedHighlightId: null
         });
@@ -2821,7 +2821,7 @@ const ReadingTest = ({
         x: e.clientX,
         y: e.clientY,
         selection: selectionText,
-        range: range,
+        range: range.cloneRange(),
         clearMode: false,
         clickedHighlightId: null
       });
