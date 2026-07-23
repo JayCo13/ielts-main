@@ -11,6 +11,7 @@ import ForceLogoutDialog from '../../components/ForceLogoutDialog';
 import Split from 'react-split';
 import { TranslatorDialog, useTextSelection } from '../../translator';
 import { API_BASE } from '../../config/api';
+import useExamHeartbeat from '../../utils/useExamHeartbeat';
 
 // Audio Control Component — uses native browser streaming (no blob download)
 const AudioControl = ({ examId, currentPart, colorTheme, isReviewMode }) => {
@@ -497,6 +498,17 @@ const MainLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { examId } = location.state || {};
+  // Live progress heartbeat for the teacher realtime board (no-op unless the
+  // student belongs to a center; skipped in result-review mode).
+  useExamHeartbeat({
+    enabled: !!examId && !location?.state?.fromResultReview,
+    skill: 'listening',
+    examId,
+    title: examData?.exam_title || testDescription?.title,
+    questionsDone: Object.values(studentAnswers).filter(v => v && String(v).trim() !== '').length,
+    totalQuestions: examData?.question_map ? Object.keys(examData.question_map).length : 40,
+    lastQuestion: currentQuestion,
+  });
   const [showVolumeControl, setShowVolumeControl] = useState(false);
   const [volume, setVolume] = useState(1);
   const [showSpeedControl, setShowSpeedControl] = useState(false);

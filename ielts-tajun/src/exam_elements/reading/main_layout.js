@@ -12,6 +12,7 @@ import ConfirmDialog from '../../components/ConfirmDialog';
 import ForceLogoutDialog from '../../components/ForceLogoutDialog';
 import { TranslatorDialog, useTextSelection } from '../../translator';
 import { API_BASE } from '../../config/api';
+import useExamHeartbeat from '../../utils/useExamHeartbeat';
 
 const MainLayout = () => {
   const [currentQuestion, setCurrentQuestion] = useState(1);
@@ -36,6 +37,17 @@ const MainLayout = () => {
   const isRetakeIncorrectMode = location?.state?.retakeIncorrectMode;
   const incorrectQuestions = location?.state?.incorrectQuestions || [];
   const retakeAnswerData = location?.state?.answerData;
+  // Live progress heartbeat for the teacher realtime board (no-op unless the
+  // student belongs to a center; skipped in result-review mode).
+  useExamHeartbeat({
+    enabled: !!examId && !isReviewMode,
+    skill: 'reading',
+    examId,
+    title: examData?.exam_title || testDescription?.title,
+    questionsDone: Object.values(studentAnswers).filter(v => v && String(v).trim() !== '').length,
+    totalQuestions: examData?.question_map ? Object.keys(examData.question_map).length : 40,
+    lastQuestion: currentQuestion,
+  });
   // Add new state variables for settings
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isBellOpen, setIsBellOpen] = useState(false);

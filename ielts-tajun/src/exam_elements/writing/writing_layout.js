@@ -6,6 +6,7 @@ import { Bell, Menu, Wifi, Volume2, FileText } from 'lucide-react';
 import { ChevronLeft, ChevronRight, Check } from 'lucide-react';
 import Split from 'react-split';
 import { API_BASE } from '../../config/api';
+import useExamHeartbeat from '../../utils/useExamHeartbeat';
 
 
 const processInstructions = (instructions) => {
@@ -42,6 +43,17 @@ const WritingLayout = () => {
   const [logoutCountdown, setLogoutCountdown] = useState(40);
   const [logoutMessage, setLogoutMessage] = useState('');
   const [sampleOpen, setSampleOpen] = useState(false);
+  // Live progress heartbeat for the teacher realtime board (no-op unless the
+  // student belongs to a center).
+  useExamHeartbeat({
+    enabled: !!taskId,
+    skill: 'writing',
+    examId: testId,
+    title: task?.part_number ? `Writing Task ${task.part_number}` : 'Writing',
+    questionsDone: currentPartIndex,
+    totalQuestions: parts?.length || null,
+    lastQuestion: currentPartIndex + 1,
+  });
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
