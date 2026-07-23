@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { API_BASE } from './config/api';
+import { ensureNotifyPermission } from './utils/notifyPermission';
 
 const StudentGuard = () => {
   const [status, setStatus] = useState(null);
@@ -10,6 +11,10 @@ const StudentGuard = () => {
   const token = localStorage.getItem('token');
   const role = localStorage.getItem('role');
   const navigate = useNavigate();
+
+  // Ask for notification permission as soon as the student reaches the logged-in
+  // area (lists/dashboard) — well before entering a test room.
+  useEffect(() => { ensureNotifyPermission(); }, []);
 
   useEffect(() => {
     const checkAccess = async () => {

@@ -80,12 +80,8 @@ export default function ChatWidget() {
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
-  // Ask for browser-notification permission once the widget is available.
-  useEffect(() => {
-    if (available === true && 'Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission().catch(() => {});
-    }
-  }, [available]);
+  // (Notification permission is requested early by StudentGuard, before the exam
+  // room, so no prompt/reload is needed here mid-exam.)
 
   // Sound + browser notification whenever total unread grows (a new incoming msg).
   useEffect(() => {

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { Menu, X, LogOut, ChevronRight } from 'lucide-react'
 import { getUsername, getRole, clearSession } from '../lib/auth'
+import useChatNotifier from '../lib/useChatNotifier'
 import { Avatar } from './ui'
 
 const LOGO = 'https://thiieltstrenmay.com/img/logo-ielts.png'
@@ -49,6 +50,7 @@ export default function Layout({ nav, title }) {
   const navigate = useNavigate()
   const username = getUsername()
   const role = getRole()
+  useChatNotifier()  // app-wide teacher chat notifications + early permission
 
   const logout = () => { clearSession(); navigate('/login') }
 

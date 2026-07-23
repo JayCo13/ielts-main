@@ -21,8 +21,6 @@ export default function Chat() {
   const [sending, setSending] = useState(false)
   const bottomRef = useRef(null)
   const sendingRef = useRef(false)
-  const audioRef = useRef(null)
-  const prevUnreadRef = useRef(null)
 
   // Open a direct thread passed from the realtime board (?type=direct&id=&name=)
   useEffect(() => {
@@ -66,31 +64,8 @@ export default function Chat() {
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
 
-  // Request browser-notification permission once.
-  useEffect(() => {
-    if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission().catch(() => {})
-  }, [])
-
-  // Sound + browser notification when total unread grows (a new incoming msg).
-  useEffect(() => {
-    const total = threads.reduce((n, t) => n + (t.unread || 0), 0)
-    const prev = prevUnreadRef.current
-    if (prev !== null && total > prev) {
-      const t = threads.find((x) => (x.unread || 0) > 0)
-      try {
-        if (!audioRef.current) audioRef.current = new Audio('/notify.mp3')
-        audioRef.current.currentTime = 0
-        audioRef.current.play().catch(() => {})
-      } catch (e) { /* ignore */ }
-      try {
-        if ('Notification' in window && Notification.permission === 'granted') {
-          const n = new Notification(t ? `Tin nhắn mới · ${t.name}` : 'Tin nhắn mới', { body: t?.last || '', tag: 'ielts-chat' })
-          n.onclick = () => { window.focus(); if (t) setActive({ type: t.type, id: t.id, name: t.name }); n.close() }
-        }
-      } catch (e) { /* ignore */ }
-    }
-    prevUnreadRef.current = total
-  }, [threads])
+  // (Sound + browser notification are handled app-wide by useChatNotifier in
+  // Layout so the teacher is alerted on every page, not just here.)
 
   const send = async () => {
     const body = text.trim()

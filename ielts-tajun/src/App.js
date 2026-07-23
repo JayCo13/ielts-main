@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { NotificationProvider } from './context/NotificationContext';
 import { initializeAuth } from './utils/authUtils';
+import { ensureNotifyPermission } from './utils/notifyPermission';
 import ChatWidget from './components/ChatWidget';
 import Achievement from './components/Achievements';
 import HomePage from './components/HomePage';
@@ -63,6 +64,8 @@ function App() {
   useEffect(() => {
     // Initialize authentication and device tracking
     initializeAuth();
+    // If already logged in on load, ask for notification permission early.
+    if (localStorage.getItem('token')) ensureNotifyPermission();
   }, []);
 
   return (
