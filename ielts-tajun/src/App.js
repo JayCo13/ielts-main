@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { NotificationProvider } from './context/NotificationContext';
 import { initializeAuth } from './utils/authUtils';
+import ChatWidget from './components/ChatWidget';
 import Achievement from './components/Achievements';
 import HomePage from './components/HomePage';
 import ListeningTests from './components/Listening_Fe';
@@ -116,6 +117,8 @@ function App() {
           {/* Catch-all route for 404 - must be last */}
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
+        {/* Center-student chat widget (self-hides for non-center users) */}
+        <ChatWidget />
       </NotificationProvider>
     </Router>
   );

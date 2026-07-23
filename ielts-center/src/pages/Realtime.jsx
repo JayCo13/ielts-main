@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Activity, MessageSquare, ArrowUpDown } from 'lucide-react'
 import api from '../lib/api'
 import { PageHeader, Card, Loading, EmptyState, Badge, Avatar } from '../components/ui'
@@ -34,6 +35,7 @@ function SortHeader({ label, col, sort, setSort, className = '' }) {
 
 // scope: 'teacher' -> /teacher/realtime (own classes) | 'center' -> /center/realtime (all)
 export default function Realtime({ scope = 'teacher' }) {
+  const navigate = useNavigate()
   const endpoint = scope === 'center' ? '/center/realtime' : '/teacher/realtime'
   const [students, setStudents] = useState([])
   const [loading, setLoading] = useState(true)
@@ -143,13 +145,17 @@ export default function Realtime({ scope = 'teacher' }) {
                       </td>
                       <td className="px-3 py-2.5 tabular-nums text-slate-600">{s.last_question ?? '—'}</td>
                       <td className="px-3 py-2.5 text-right">
-                        <button
-                          disabled
-                          title="Tính năng nhắn tin sắp ra mắt"
-                          className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs text-slate-400 bg-slate-100 cursor-not-allowed"
-                        >
-                          <MessageSquare className="h-3.5 w-3.5" /> Nhắn
-                        </button>
+                        {scope === 'teacher' ? (
+                          <button
+                            onClick={() => navigate(`/teacher/chat?type=direct&id=${s.user_id}&name=${encodeURIComponent(s.name || '')}`)}
+                            title="Nhắn tin cho học viên"
+                            className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs text-brand-600 bg-brand-50 hover:bg-brand-100"
+                          >
+                            <MessageSquare className="h-3.5 w-3.5" /> Nhắn
+                          </button>
+                        ) : (
+                          <span className="text-slate-300 text-xs">—</span>
+                        )}
                       </td>
                     </tr>
                   )

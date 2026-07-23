@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
-import { LayoutDashboard, GraduationCap, Users, School, Wallet, Activity } from 'lucide-react'
+import { LayoutDashboard, GraduationCap, Users, School, Wallet, Activity, MessageSquare } from 'lucide-react'
 import { isAuthed, getRole } from './lib/auth'
 import Layout from './components/Layout'
 // Login carries the Lottie (lottie-web) — lazy-load it so it doesn't weigh
@@ -14,6 +14,7 @@ import TeacherOverview from './pages/teacher/Overview'
 import ClassStudents from './pages/teacher/ClassStudents'
 import StudentHistory from './pages/teacher/StudentHistory'
 import Realtime from './pages/Realtime'
+import Chat from './pages/teacher/Chat'
 
 const centerNav = [
   { to: '/', label: 'Tổng quan', icon: LayoutDashboard, end: true },
@@ -27,6 +28,7 @@ const centerNav = [
 const teacherNav = [
   { to: '/teacher', label: 'Lớp của tôi', icon: School, end: true },
   { to: '/teacher/realtime', label: 'Trực tuyến', icon: Activity },
+  { to: '/teacher/chat', label: 'Tin nhắn', icon: MessageSquare },
 ]
 
 // Guard returns the Layout (with its <Outlet/>) or a redirect.
@@ -57,6 +59,7 @@ export default function App() {
       <Route element={<Protected role="teacher" nav={teacherNav} title="Bảng điều khiển Giáo viên" />}>
         <Route path="/teacher" element={<TeacherOverview />} />
         <Route path="/teacher/realtime" element={<Realtime scope="teacher" />} />
+        <Route path="/teacher/chat" element={<Chat />} />
         <Route path="/teacher/classes/:classId" element={<ClassStudents />} />
         <Route path="/teacher/students/:userId" element={<StudentHistory />} />
       </Route>
