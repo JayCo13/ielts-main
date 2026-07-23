@@ -64,7 +64,10 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          vendor: ['react', 'react-dom'],
+          // Renamed vendor -> vendorreact (2026-07-23) to force brand-new asset
+          // filenames, bypassing Cloudflare/browser caches that were poisoned with
+          // a text/html copy of the old vendor-*.js during an nginx upstream swap.
+          vendorreact: ['react', 'react-dom'],
         }
       }
     }
