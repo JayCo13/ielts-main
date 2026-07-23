@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
-import { LayoutDashboard, GraduationCap, Users, School, Wallet, Activity, MessageSquare } from 'lucide-react'
+import { LayoutDashboard, GraduationCap, Users, School, Wallet, Activity, MessageSquare, BarChart3 } from 'lucide-react'
 import { isAuthed, getRole } from './lib/auth'
 import Layout from './components/Layout'
 // Login carries the Lottie (lottie-web) — lazy-load it so it doesn't weigh
@@ -15,6 +15,7 @@ import ClassStudents from './pages/teacher/ClassStudents'
 import StudentHistory from './pages/teacher/StudentHistory'
 import Realtime from './pages/Realtime'
 import Chat from './pages/teacher/Chat'
+import Reports from './pages/center/Reports'
 
 const centerNav = [
   { to: '/', label: 'Tổng quan', icon: LayoutDashboard, end: true },
@@ -22,6 +23,7 @@ const centerNav = [
   { to: '/students', label: 'Học viên', icon: Users },
   { to: '/classes', label: 'Lớp học', icon: School },
   { to: '/realtime', label: 'Trực tuyến', icon: Activity },
+  { to: '/reports', label: 'Dữ liệu', icon: BarChart3 },
   { to: '/wallet', label: 'Ví & VIP', icon: Wallet },
 ]
 
@@ -52,6 +54,7 @@ export default function App() {
         <Route path="/students" element={<Members key="students" kind="student" />} />
         <Route path="/classes" element={<Classes />} />
         <Route path="/realtime" element={<Realtime scope="center" />} />
+        <Route path="/reports" element={<Reports />} />
         <Route path="/wallet" element={<WalletPage />} />
       </Route>
 
