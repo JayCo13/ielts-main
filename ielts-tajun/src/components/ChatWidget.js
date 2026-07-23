@@ -33,6 +33,10 @@ export default function ChatWidget() {
   const [pinned, setPinned] = useState([]);
   const [text, setText] = useState('');
   const bottomRef = useRef(null);
+  const wrapRef = useRef(null);
+  const sendingRef = useRef(false);
+  const audioRef = useRef(null);
+  const prevUnreadRef = useRef(null);
 
   const onExam = location.pathname.includes('test_room');
   const loggedIn = !!token();
@@ -76,9 +80,52 @@ export default function ChatWidget() {
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
+  // Ask for browser-notification permission once the widget is available.
+  useEffect(() => {
+    if (available === true && 'Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {});
+    }
+  }, [available]);
+
+  // Sound + browser notification whenever total unread grows (a new incoming msg).
+  useEffect(() => {
+    const total = threads.reduce((n, t) => n + (t.unread || 0), 0);
+    const prev = prevUnreadRef.current;
+    if (prev !== null && total > prev) {
+      const t = threads.find((x) => (x.unread || 0) > 0);
+      try {
+        if (!audioRef.current) audioRef.current = new Audio('/notify.mp3');
+        audioRef.current.currentTime = 0;
+        audioRef.current.play().catch(() => {});
+      } catch (e) { /* ignore */ }
+      try {
+        if ('Notification' in window && Notification.permission === 'granted') {
+          const n = new Notification(t ? `Tin nhắn mới · ${t.name}` : 'Tin nhắn mới', {
+            body: t?.last || '', icon: '/img/logo-ielts.png', tag: 'ielts-chat',
+          });
+          n.onclick = () => {
+            window.focus(); setOpen(true);
+            if (t) setActive({ type: t.type, id: t.id, name: t.name });
+            n.close();
+          };
+        }
+      } catch (e) { /* ignore */ }
+    }
+    prevUnreadRef.current = total;
+  }, [threads]);
+
+  // Click outside the widget closes the open panel.
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDown = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [open]);
+
   const send = async () => {
     const body = text.trim();
-    if (!body || !active) return;
+    if (!body || !active || sendingRef.current) return;  // guard double-send (IME/Enter)
+    sendingRef.current = true;
     try {
       await authed('/chat/messages', {
         method: 'POST',
@@ -86,7 +133,7 @@ export default function ChatWidget() {
       });
       setText('');
       loadMessages(); loadThreads();
-    } catch (e) { /* ignore */ }
+    } catch (e) { /* ignore */ } finally { sendingRef.current = false; }
   };
 
   // Only inside the exam/study room (not marketing pages, lists or dashboard).
@@ -96,7 +143,7 @@ export default function ChatWidget() {
   const unreadTotal = threads.reduce((n, t) => n + (t.unread || 0), 0);
 
   return (
-    <div className="fixed right-4 bottom-24 z-[1000]">
+    <div ref={wrapRef} className="fixed right-4 bottom-24 z-[1000]">
       {open && (
         <div className="mb-3 w-[340px] max-w-[calc(100vw-2rem)] h-[460px] max-h-[70vh] bg-white rounded-2xl shadow-2xl border border-gray-100 flex flex-col overflow-hidden">
           {/* Header */}
@@ -156,7 +203,7 @@ export default function ChatWidget() {
                 <textarea
                   value={text}
                   onChange={(e) => setText(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send(); } }}
                   rows={1}
                   placeholder="Nhập tin nhắn…"
                   className="flex-1 resize-none rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0096b1]/40 max-h-24"

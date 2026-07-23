@@ -20,6 +20,9 @@ export default function Chat() {
   const [asHomework, setAsHomework] = useState(false)
   const [sending, setSending] = useState(false)
   const bottomRef = useRef(null)
+  const sendingRef = useRef(false)
+  const audioRef = useRef(null)
+  const prevUnreadRef = useRef(null)
 
   // Open a direct thread passed from the realtime board (?type=direct&id=&name=)
   useEffect(() => {
@@ -63,9 +66,36 @@ export default function Chat() {
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
 
+  // Request browser-notification permission once.
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission().catch(() => {})
+  }, [])
+
+  // Sound + browser notification when total unread grows (a new incoming msg).
+  useEffect(() => {
+    const total = threads.reduce((n, t) => n + (t.unread || 0), 0)
+    const prev = prevUnreadRef.current
+    if (prev !== null && total > prev) {
+      const t = threads.find((x) => (x.unread || 0) > 0)
+      try {
+        if (!audioRef.current) audioRef.current = new Audio('/notify.mp3')
+        audioRef.current.currentTime = 0
+        audioRef.current.play().catch(() => {})
+      } catch (e) { /* ignore */ }
+      try {
+        if ('Notification' in window && Notification.permission === 'granted') {
+          const n = new Notification(t ? `Tin nhắn mới · ${t.name}` : 'Tin nhắn mới', { body: t?.last || '', tag: 'ielts-chat' })
+          n.onclick = () => { window.focus(); if (t) setActive({ type: t.type, id: t.id, name: t.name }); n.close() }
+        }
+      } catch (e) { /* ignore */ }
+    }
+    prevUnreadRef.current = total
+  }, [threads])
+
   const send = async () => {
     const body = text.trim()
-    if (!body || !active || sending) return
+    if (!body || !active || sending || sendingRef.current) return  // guard double-send (IME/Enter)
+    sendingRef.current = true
     setSending(true)
     try {
       await api.post('/chat/messages', {
@@ -76,7 +106,7 @@ export default function Chat() {
       })
       setText(''); setAsHomework(false)
       await loadMessages(); loadThreads()
-    } catch (e) { alert(e.message || 'Không gửi được') } finally { setSending(false) }
+    } catch (e) { alert(e.message || 'Không gửi được') } finally { setSending(false); sendingRef.current = false }
   }
 
   const togglePin = async (m) => {
@@ -177,7 +207,7 @@ export default function Chat() {
                   <textarea
                     value={text}
                     onChange={(e) => setText(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send() } }}
                     rows={1}
                     placeholder="Nhập tin nhắn…"
                     className="flex-1 resize-none rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 max-h-28"
