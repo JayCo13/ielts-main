@@ -241,10 +241,17 @@ const AnnouncementsSection = () => {
   const visibleItems = expanded ? items : items.slice(0, COLLAPSED_COUNT);
   const hasMore = items.length > COLLAPSED_COUNT;
 
+  const fmtDate = (iso) => {
+    if (!iso) return '';
+    try {
+      return new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    } catch (e) { return ''; }
+  };
+
   const ItemInner = ({ item }) => (
     <>
-      <span className="text-xl leading-none shrink-0 mt-0.5">{item.icon || '•'}</span>
-      <span className={`flex-1 text-gray-700 ${item.is_important ? 'font-semibold' : ''}`}>
+      <span className="text-2xl leading-none shrink-0 mt-0.5">{item.icon || '•'}</span>
+      <span className={`flex-1 text-base md:text-lg text-gray-700 ${item.is_important ? 'font-semibold' : ''}`}>
         {item.title || item.content}
         {item.is_important && (
           <span className="ml-2 align-middle inline-flex items-center text-[11px] font-bold text-[#eb7e37] bg-[#eb7e37]/10 rounded-full px-2 py-0.5">
@@ -252,14 +259,19 @@ const AnnouncementsSection = () => {
           </span>
         )}
       </span>
-      <svg className="w-4 h-4 text-gray-300 shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      {item.created_at && (
+        <span className="shrink-0 text-xs md:text-sm text-gray-400 mt-1.5 whitespace-nowrap">
+          {fmtDate(item.created_at)}
+        </span>
+      )}
+      <svg className="w-5 h-5 text-gray-300 shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
       </svg>
     </>
   );
 
   return (
-    <div className="max-w-3xl mx-auto px-4 relative z-10 py-10">
+    <div className="max-w-5xl mx-auto px-4 relative z-10 py-10">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         whileInView={{ opacity: 1, y: 0 }}
@@ -268,9 +280,9 @@ const AnnouncementsSection = () => {
         className="bg-white rounded-2xl shadow-lg border border-[#e9ecef] overflow-hidden"
       >
         {/* Header */}
-        <div className="flex items-center gap-3 px-6 py-4 bg-gradient-to-r from-[#0096b1]/10 via-[#2b5356]/5 to-transparent border-b border-gray-100">
-          <span className="text-2xl">📢</span>
-          <h2 className="text-lg md:text-xl font-bold text-[#2b5356] tracking-wide uppercase">
+        <div className="flex items-center gap-3 px-6 md:px-8 py-5 bg-gradient-to-r from-[#0096b1]/10 via-[#2b5356]/5 to-transparent border-b border-gray-100">
+          <span className="text-3xl">📢</span>
+          <h2 className="text-xl md:text-2xl font-bold text-[#2b5356] tracking-wide uppercase">
             Thông tin mới
           </h2>
         </div>
@@ -284,14 +296,14 @@ const AnnouncementsSection = () => {
                   href={item.link}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-start gap-3 px-6 py-3.5 hover:bg-[#0096b1]/5 transition-colors"
+                  className="flex items-start gap-4 px-6 md:px-8 py-4 hover:bg-[#0096b1]/5 transition-colors"
                 >
                   <ItemInner item={item} />
                 </a>
               ) : (
                 <Link
                   to={`/thong-tin/${item.announcement_id}`}
-                  className="flex items-start gap-3 px-6 py-3.5 hover:bg-[#0096b1]/5 transition-colors"
+                  className="flex items-start gap-4 px-6 md:px-8 py-4 hover:bg-[#0096b1]/5 transition-colors"
                 >
                   <ItemInner item={item} />
                 </Link>
@@ -304,7 +316,7 @@ const AnnouncementsSection = () => {
         {hasMore && (
           <button
             onClick={() => setExpanded(!expanded)}
-            className="w-full flex items-center justify-center gap-1 px-6 py-3 text-sm font-semibold text-[#0096b1] hover:bg-[#0096b1]/5 border-t border-gray-100 transition-colors"
+            className="w-full flex items-center justify-center gap-1 px-6 py-4 text-base font-semibold text-[#0096b1] hover:bg-[#0096b1]/5 border-t border-gray-100 transition-colors"
           >
             {expanded ? 'Thu gọn' : `Xem tất cả (${items.length})`}
             <svg className={`w-4 h-4 transition-transform ${expanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
