@@ -64,7 +64,7 @@ async def get_affiliate(db: Session = Depends(get_db), current: User = Depends(g
     balance = current.affiliate_balance or 0
     return {
         "referral_code": current.referral_code,
-        "referral_link": f"{FRONTEND_URL}/register?ref={current.referral_code}",
+        "referral_link": f"{FRONTEND_URL}/?ref={current.referral_code}",
         "signup_count": int(signup_count),
         "total_commission": int(total_commission),
         "balance": int(balance),
