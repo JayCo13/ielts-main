@@ -4,8 +4,9 @@ import EditProfile from './EditProfile';
 import ChangePassword from './ChangePassword';
 import ExamHistory from './ExamHistory';
 import AffiliatePanel from './AffiliatePanel';
+import PaymentPanel from './PaymentPanel';
 import Navbar from './Navbar';
-import { User, Edit, History, ChevronLeft, ChevronRight, BarChart, Headphones, PenTool, ArrowLeft, ArrowRight, KeyRound, Gift } from 'lucide-react';
+import { User, Edit, History, ChevronLeft, ChevronRight, BarChart, Headphones, PenTool, ArrowLeft, ArrowRight, KeyRound, Gift, CreditCard } from 'lucide-react';
 import { API_BASE } from '../config/api';
 
 const ProfilePage = () => {
@@ -103,7 +104,9 @@ const ProfilePage = () => {
       case 'history':
         return <ExamHistory />;
       case 'affiliate':
-        return <AffiliatePanel />;
+        return <AffiliatePanel onGoPayment={() => setActiveView('payment')} />;
+      case 'payment':
+        return <PaymentPanel />;
       default:
         return (
           <div className="flex-1">
@@ -439,6 +442,16 @@ const ProfilePage = () => {
                 >
                   <Gift className="w-5 h-5 min-w-5" />
                   {!menuCollapsed && <span>Affiliate</span>}
+                </div>
+                <div
+                  className={`flex items-center gap-3 p-2 cursor-pointer rounded-lg hover:bg-gray-50 ${
+                    activeView === 'payment' ? 'text-[#0096b1] bg-[#0096b1]-50' : 'text-gray-600'
+                  }`}
+                  onClick={() => setActiveView('payment')}
+                  title={menuCollapsed ? "Thanh toán" : ""}
+                >
+                  <CreditCard className="w-5 h-5 min-w-5" />
+                  {!menuCollapsed && <span>Thanh toán</span>}
                 </div>
               </nav>
             </div>

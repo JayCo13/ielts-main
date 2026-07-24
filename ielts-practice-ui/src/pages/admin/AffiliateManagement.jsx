@@ -182,6 +182,12 @@ function AffiliateManagement() {
                                 <span className={`text-xs font-medium rounded-full px-2 py-0.5 ${STATUS[detail.status]?.cls || ''}`}>{STATUS[detail.status]?.label || detail.status}</span>
                             </div>
                         </div>
+                        {detail.qr_url && (
+                            <div className="mt-4 text-center">
+                                <div className="text-xs text-gray-500 mb-2">Mã QR nhận tiền (quét để chuyển khoản)</div>
+                                <img src={`${API_BASE}${detail.qr_url}`} alt="QR" className="mx-auto w-52 h-52 object-contain rounded-lg border border-gray-200 bg-white" />
+                            </div>
+                        )}
                         {detail.status === 'pending' && (
                             <div className="flex justify-end gap-2 mt-5">
                                 <button onClick={() => act(detail.withdrawal_id, 'reject')} disabled={busy} className="btn text-red-600 border border-red-200 hover:bg-red-50 disabled:opacity-50">Từ chối (hoàn tiền)</button>

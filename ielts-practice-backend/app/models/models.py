@@ -29,6 +29,12 @@ class User(Base):
     referral_code = Column(String(16), unique=True, nullable=True, index=True)
     referred_by = Column(Integer, ForeignKey('users.user_id'), nullable=True)
     affiliate_balance = Column(BigInteger, default=0, nullable=False)
+    # Saved payout method for affiliate withdrawals (set once on the Payment page):
+    # a QR image to scan and/or bank details. Snapshotted into each withdrawal.
+    payout_qr_url = Column(String(255), nullable=True)
+    payout_bank = Column(String(255), nullable=True)
+    payout_account_number = Column(String(64), nullable=True)
+    payout_account_holder = Column(String(255), nullable=True)
     exam_results = relationship("ExamResult", back_populates="user")
     user_sessions = relationship("UserSession", back_populates="user")
 
@@ -650,9 +656,10 @@ class AffiliateWithdrawal(Base):
     withdrawal_id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey('users.user_id'), nullable=False, index=True)
     amount = Column(BigInteger, nullable=False)        # xu requested (== VND)
-    account_holder = Column(String(255), nullable=False)
-    account_number = Column(String(64), nullable=False)
-    bank = Column(String(255), nullable=False)
+    account_holder = Column(String(255), nullable=True)
+    account_number = Column(String(64), nullable=True)
+    bank = Column(String(255), nullable=True)
+    qr_url = Column(String(255), nullable=True)        # snapshot of the payout QR image
     status = Column(Enum('pending', 'paid', 'rejected', name='affiliate_withdrawal_status'), default='pending', index=True)
     admin_note = Column(Text, nullable=True)
     created_at = Column(DateTime, default=lambda: get_vietnam_time().replace(tzinfo=None))

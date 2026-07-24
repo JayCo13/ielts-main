@@ -26,23 +26,24 @@ function TxType({ t }) {
   return <span className={`text-xs font-medium ${m.cls}`}>{m.label}</span>;
 }
 
-export default function AffiliatePanel() {
+export default function AffiliatePanel({ onGoPayment }) {
   const [info, setInfo] = useState(null);
   const [history, setHistory] = useState([]);
   const [withdrawals, setWithdrawals] = useState([]);
+  const [payment, setPayment] = useState(null);
   const [copied, setCopied] = useState(false);
-  const [form, setForm] = useState({ account_holder: '', account_number: '', bank: '' });
   const [submitting, setSubmitting] = useState(false);
   const [msg, setMsg] = useState(null);
 
   const load = useCallback(async () => {
     try {
-      const [i, h, w] = await Promise.all([
+      const [i, h, w, p] = await Promise.all([
         authed('/customer/affiliate'),
         authed('/customer/affiliate/history'),
         authed('/customer/affiliate/withdrawals'),
+        authed('/customer/affiliate/payment'),
       ]);
-      setInfo(i); setHistory(h || []); setWithdrawals(w || []);
+      setInfo(i); setHistory(h || []); setWithdrawals(w || []); setPayment(p);
     } catch (e) { /* ignore */ }
   }, []);
 
@@ -57,14 +58,10 @@ export default function AffiliatePanel() {
 
   const submitWithdraw = async () => {
     setMsg(null);
-    if (!form.account_holder.trim() || !form.account_number.trim() || !form.bank.trim()) {
-      setMsg({ type: 'err', text: 'Vui lòng nhập đủ thông tin tài khoản nhận' }); return;
-    }
     setSubmitting(true);
     try {
-      await authed('/customer/affiliate/withdraw', { method: 'POST', body: JSON.stringify(form) });
+      await authed('/customer/affiliate/withdraw', { method: 'POST', body: JSON.stringify({}) });
       setMsg({ type: 'ok', text: 'Đã gửi yêu cầu rút tiền. Admin sẽ xử lý trong vòng 30 ngày.' });
-      setForm({ account_holder: '', account_number: '', bank: '' });
       load();
     } catch (e) { setMsg({ type: 'err', text: e.message }); }
     finally { setSubmitting(false); }
@@ -112,22 +109,23 @@ export default function AffiliatePanel() {
       {/* Withdraw */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
         <div className="flex items-center gap-2 mb-3"><Wallet className="w-5 h-5 text-[#0096b1]" /><h3 className="font-bold text-gray-800">Rút tiền hoa hồng</h3></div>
-        {info.can_withdraw ? (
-          <div className="space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <input placeholder="Chủ tài khoản" value={form.account_holder} onChange={e => setForm({ ...form, account_holder: e.target.value })} className="px-3 py-2 rounded-lg border border-gray-200 text-sm" />
-              <input placeholder="Số tài khoản" value={form.account_number} onChange={e => setForm({ ...form, account_number: e.target.value })} className="px-3 py-2 rounded-lg border border-gray-200 text-sm" />
-              <input placeholder="Ngân hàng" value={form.bank} onChange={e => setForm({ ...form, bank: e.target.value })} className="px-3 py-2 rounded-lg border border-gray-200 text-sm" />
-            </div>
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <span className="text-sm text-gray-500">Rút toàn bộ số dư: <b className="text-gray-800">{fmt(info.balance)} xu</b></span>
-              <button onClick={submitWithdraw} disabled={submitting} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#eb7e37] text-white text-sm font-semibold hover:bg-[#d96e28] disabled:opacity-50">
-                <Send className="w-4 h-4" /> Yêu cầu rút tiền
-              </button>
-            </div>
+        {!info.can_withdraw ? (
+          <p className="text-sm text-gray-500">Cần đạt tối thiểu <b>{fmt(info.withdraw_min)} xu</b> mới được rút. Số dư hiện tại: <b>{fmt(info.balance)} xu</b>.</p>
+        ) : payment && !payment.is_set ? (
+          <div className="text-sm text-gray-600">
+            Bạn cần thiết lập <b>Thông tin thanh toán</b> (ảnh QR hoặc tài khoản ngân hàng) trước khi rút.
+            {onGoPayment && <button onClick={onGoPayment} className="ml-2 text-[#0096b1] font-semibold hover:underline">Thiết lập ngay →</button>}
           </div>
         ) : (
-          <p className="text-sm text-gray-500">Cần đạt tối thiểu <b>{fmt(info.withdraw_min)} xu</b> mới được rút. Số dư hiện tại: <b>{fmt(info.balance)} xu</b>.</p>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="text-sm text-gray-500">
+              Rút toàn bộ số dư: <b className="text-gray-800">{fmt(info.balance)} xu</b>
+              {payment && <span className="block text-xs text-gray-400 mt-0.5">Nhận qua: {payment.qr_url ? 'QR đã lưu' : ''}{payment.qr_url && payment.bank ? ' · ' : ''}{payment.bank ? `${payment.bank} ${payment.account_number || ''}` : ''}</span>}
+            </div>
+            <button onClick={submitWithdraw} disabled={submitting} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#eb7e37] text-white text-sm font-semibold hover:bg-[#d96e28] disabled:opacity-50">
+              <Send className="w-4 h-4" /> Yêu cầu rút tiền
+            </button>
+          </div>
         )}
         {msg && <p className={`mt-2 text-sm ${msg.type === 'ok' ? 'text-emerald-600' : 'text-red-500'}`}>{msg.text}</p>}
       </div>

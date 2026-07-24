@@ -92,6 +92,7 @@ async def withdrawal_detail(
         "account_holder": w.account_holder,
         "account_number": w.account_number,
         "bank": w.bank,
+        "qr_url": w.qr_url,
         "amount": int(w.amount),
         "status": w.status,
         "admin_note": w.admin_note,

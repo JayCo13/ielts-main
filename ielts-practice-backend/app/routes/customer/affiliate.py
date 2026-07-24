@@ -4,9 +4,10 @@ Each customer sees their referral link, signup count, total commission earned,
 wallet balance (xu) + history, and can request a bank withdrawal (≥ 300,000 xu).
 """
 import os
+import uuid
 from typing import Optional, List
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -97,10 +98,77 @@ async def my_withdrawals(db: Session = Depends(get_db), current: User = Depends(
     ]
 
 
+# ── payout method (Payment page) ─────────────────────────────────────────────
+
+PAYOUT_QR_DIR = "static/affiliate_qr"
+
+
+def _has_payout(user: User) -> bool:
+    """User can withdraw once they've provided a QR image OR full bank details."""
+    has_bank = bool((user.payout_bank or "").strip() and (user.payout_account_number or "").strip()
+                    and (user.payout_account_holder or "").strip())
+    return bool(user.payout_qr_url) or has_bank
+
+
+@router.get("/payment")
+async def get_payment(current: User = Depends(get_current_student)):
+    return {
+        "qr_url": current.payout_qr_url,
+        "bank": current.payout_bank,
+        "account_number": current.payout_account_number,
+        "account_holder": current.payout_account_holder,
+        "is_set": _has_payout(current),
+    }
+
+
+class PaymentInfo(BaseModel):
+    bank: Optional[str] = None
+    account_number: Optional[str] = None
+    account_holder: Optional[str] = None
+
+
+@router.put("/payment")
+async def set_payment(
+    payload: PaymentInfo,
+    db: Session = Depends(get_db),
+    current: User = Depends(get_current_student),
+):
+    current.payout_bank = (payload.bank or "").strip() or None
+    current.payout_account_number = (payload.account_number or "").strip() or None
+    current.payout_account_holder = (payload.account_holder or "").strip() or None
+    db.commit()
+    return {"ok": True, "is_set": _has_payout(current)}
+
+
+@router.post("/payment/qr")
+async def upload_payout_qr(
+    image: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current: User = Depends(get_current_student),
+):
+    if not image.content_type or not image.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="File phải là ảnh")
+    os.makedirs(PAYOUT_QR_DIR, exist_ok=True)
+    ext = os.path.splitext(image.filename or "")[1] or ".png"
+    fname = f"{uuid.uuid4().hex}{ext}"
+    path = os.path.join(PAYOUT_QR_DIR, fname)
+    with open(path, "wb") as f:
+        f.write(await image.read())
+    current.payout_qr_url = f"/{PAYOUT_QR_DIR}/{fname}"
+    db.commit()
+    return {"ok": True, "qr_url": current.payout_qr_url}
+
+
+@router.delete("/payment/qr")
+async def delete_payout_qr(db: Session = Depends(get_db), current: User = Depends(get_current_student)):
+    current.payout_qr_url = None
+    db.commit()
+    return {"ok": True}
+
+
+# ── withdrawal ───────────────────────────────────────────────────────────────
+
 class WithdrawRequest(BaseModel):
-    account_holder: str
-    account_number: str
-    bank: str
     amount: Optional[int] = None  # xu; default = full balance
 
 
@@ -113,15 +181,16 @@ async def request_withdraw(
     balance = current.affiliate_balance or 0
     if balance < WITHDRAW_MIN_XU:
         raise HTTPException(status_code=400, detail=f"Số dư tối thiểu để rút là {WITHDRAW_MIN_XU:,} xu")
+    if not _has_payout(current):
+        raise HTTPException(status_code=400, detail="Vui lòng cập nhật Thông tin thanh toán (QR hoặc tài khoản ngân hàng) trước khi rút")
     amount = payload.amount if payload.amount and payload.amount > 0 else balance
     if amount < WITHDRAW_MIN_XU:
         raise HTTPException(status_code=400, detail=f"Số tiền rút tối thiểu là {WITHDRAW_MIN_XU:,} xu")
     if amount > balance:
         raise HTTPException(status_code=400, detail="Số tiền rút vượt quá số dư")
-    if not payload.account_holder.strip() or not payload.account_number.strip() or not payload.bank.strip():
-        raise HTTPException(status_code=400, detail="Vui lòng nhập đủ thông tin tài khoản nhận")
 
-    # Deduct immediately; refunded if the admin later rejects.
+    # Deduct immediately; refunded if the admin later rejects. Snapshot the saved
+    # payout method (QR + bank) so the admin can just scan and transfer.
     current.affiliate_balance = balance - amount
     db.add(AffiliateWalletTx(
         user_id=current.user_id,
@@ -133,9 +202,10 @@ async def request_withdraw(
     w = AffiliateWithdrawal(
         user_id=current.user_id,
         amount=amount,
-        account_holder=payload.account_holder.strip(),
-        account_number=payload.account_number.strip(),
-        bank=payload.bank.strip(),
+        account_holder=current.payout_account_holder,
+        account_number=current.payout_account_number,
+        bank=current.payout_bank,
+        qr_url=current.payout_qr_url,
         status="pending",
     )
     db.add(w)
