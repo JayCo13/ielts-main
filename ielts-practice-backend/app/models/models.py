@@ -23,6 +23,12 @@ class User(Base):
     is_vip = Column(Boolean, default=False)
     vip_expiry = Column(DateTime, nullable=True)
     account_activated_at = Column(DateTime, nullable=True)
+    # Affiliate / referral program (customers). referral_code is this user's own
+    # share code; referred_by points at the affiliate who referred THIS user
+    # (permanent). affiliate_balance is the commission wallet in "xu" (1 xu = 1 VND).
+    referral_code = Column(String(16), unique=True, nullable=True, index=True)
+    referred_by = Column(Integer, ForeignKey('users.user_id'), nullable=True)
+    affiliate_balance = Column(BigInteger, default=0, nullable=False)
     exam_results = relationship("ExamResult", back_populates="user")
     user_sessions = relationship("UserSession", back_populates="user")
 
@@ -614,4 +620,43 @@ class Announcement(Base):
     display_order = Column(Integer, default=0)        # manual ordering (asc)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=lambda: get_vietnam_time().replace(tzinfo=None))
+
+
+class AffiliateWalletTx(Base):
+    """Affiliate commission-wallet ledger (unit = xu, 1 xu = 1 VND). One row per
+    balance change, shown as "Lịch sử ví". source_transaction_id is set for
+    'commission' rows and is UNIQUE, so a given VIP PackageTransaction can credit
+    commission at most once (idempotent across the PayOS webhook + admin-confirm
+    paths). Withdrawals/refunds leave it NULL (MySQL allows many NULLs)."""
+    __tablename__ = 'affiliate_wallet_tx'
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.user_id'), nullable=False, index=True)  # the affiliate
+    type = Column(Enum('commission', 'withdraw', 'withdraw_refund', name='affiliate_tx_types'), nullable=False)
+    amount = Column(BigInteger, nullable=False)        # signed xu (+commission, -withdraw)
+    balance_after = Column(BigInteger, nullable=False)
+    description = Column(String(255), nullable=True)
+    source_user_id = Column(Integer, ForeignKey('users.user_id'), nullable=True)         # the buyer (commission)
+    source_transaction_id = Column(Integer, unique=True, nullable=True, index=True)      # PackageTransaction id
+    created_at = Column(DateTime, default=lambda: get_vietnam_time().replace(tzinfo=None))
+
+
+class AffiliateWithdrawal(Base):
+    """A payout request against the affiliate wallet. Balance is deducted when the
+    request is created (status 'pending'); admin manually bank-transfers then marks
+    it 'paid', or 'rejected' (which refunds the balance)."""
+    __tablename__ = 'affiliate_withdrawals'
+
+    withdrawal_id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.user_id'), nullable=False, index=True)
+    amount = Column(BigInteger, nullable=False)        # xu requested (== VND)
+    account_holder = Column(String(255), nullable=False)
+    account_number = Column(String(64), nullable=False)
+    bank = Column(String(255), nullable=False)
+    status = Column(Enum('pending', 'paid', 'rejected', name='affiliate_withdrawal_status'), default='pending', index=True)
+    admin_note = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=lambda: get_vietnam_time().replace(tzinfo=None))
+    processed_at = Column(DateTime, nullable=True)
+
+    user = relationship("User", foreign_keys=[user_id])
 

@@ -20,6 +20,8 @@ from .seo.seo_pages import router as seo_router
 from .center import router as center_router
 from .admin.announcement_admin import router as announcement_admin_router
 from .customer.announcements import router as announcements_router
+from .customer.affiliate import router as affiliate_router
+from .admin.affiliate_admin import router as affiliate_admin_router
 
 router = APIRouter()
 
@@ -50,4 +52,7 @@ router.include_router(center_router)
 # public no-auth read (/announcements) for the student landing page.
 router.include_router(announcement_admin_router, prefix="/admin", tags=["admin-announcement"])
 router.include_router(announcements_router, tags=["announcements"])
+# Affiliate: customer self-service + admin management.
+router.include_router(affiliate_router, prefix="/customer/affiliate", tags=["affiliate"])
+router.include_router(affiliate_admin_router, prefix="/admin", tags=["admin-affiliate"])
 

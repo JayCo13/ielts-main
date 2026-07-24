@@ -140,7 +140,14 @@ async def payos_webhook(request: Request, db: Session = Depends(get_db)):
                 # Set vip_expiry to the latest end_date among all active subscriptions
                 if user.vip_expiry is None or subscription.end_date > user.vip_expiry:
                     user.vip_expiry = subscription.end_date
-            
+
+            # Affiliate: credit 10% to the buyer's referrer (idempotent, best-effort).
+            try:
+                from app.utils.affiliate import credit_referral_commission
+                credit_referral_commission(db, transaction)
+            except Exception as _aff_err:
+                logger.error(f"Affiliate commission error (payos): {_aff_err}")
+
             db.commit()
             logger.info(
                 f"PayOS payment SUCCESS: transaction_id={transaction.transaction_id}, "

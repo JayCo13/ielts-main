@@ -67,6 +67,12 @@ function App() {
     initializeAuth();
     // If already logged in on load, ask for notification permission early.
     if (localStorage.getItem('token')) ensureNotifyPermission();
+    // Capture an affiliate referral code from ?ref= on any landing page and
+    // remember it until registration.
+    try {
+      const ref = new URLSearchParams(window.location.search).get('ref');
+      if (ref) localStorage.setItem('ref_code', ref);
+    } catch (e) { /* ignore */ }
   }, []);
 
   return (

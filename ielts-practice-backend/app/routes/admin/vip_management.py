@@ -241,12 +241,20 @@ async def update_transaction_status(
         
         if subscription:
             subscription.payment_status = "completed"
-            
+
             # Update user VIP status
             user = db.query(User).filter(User.user_id == transaction.user_id).first()
             if user:
                 user.is_vip = True
                 user.vip_expiry = subscription.end_date
+
+        # Affiliate: credit 10% to the buyer's referrer (idempotent — the unique
+        # source_transaction_id prevents double-pay if this endpoint re-runs).
+        try:
+            from app.utils.affiliate import credit_referral_commission
+            credit_referral_commission(db, transaction)
+        except Exception:
+            pass
     elif transaction_status == "reject":
         # Update subscription status when rejected
         subscription = db.query(VIPSubscription).filter(

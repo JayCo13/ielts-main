@@ -38,6 +38,7 @@ import DictationManagement from './pages/admin/DictationManagement';
 import RevenueAnalytics from './pages/admin/RevenueAnalytics';
 import BroadcastEmail from './pages/admin/BroadcastEmail';
 import Announcements from './pages/admin/Announcements';
+import AffiliateManagement from './pages/admin/AffiliateManagement';
 import PendingTransactions from './pages/admin/PendingTransactions';
 import ManagePartTitles from './pages/test/ManagePartTitles';
 
@@ -156,6 +157,11 @@ function App() {
         <Route path="/packages" element={
           <ProtectedRoute>
             <VIPPackageManagement />
+          </ProtectedRoute>
+        } />
+        <Route path="/affiliate" element={
+          <ProtectedRoute>
+            <AffiliateManagement />
           </ProtectedRoute>
         } />
         <Route path="/subscriptions" element={

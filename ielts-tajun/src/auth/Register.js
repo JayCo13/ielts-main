@@ -347,7 +347,8 @@ const Register = () => {
           username: formData.username,
           email: formData.email,
           password: formData.password,
-          code: formData.code
+          code: formData.code,
+          ref: localStorage.getItem('ref_code') || undefined
         })
       });
 
@@ -357,6 +358,7 @@ const Register = () => {
         // Store token in localStorage
         localStorage.setItem('token', data.access_token);
         localStorage.setItem('username', data.username);
+        localStorage.removeItem('ref_code'); // one-time attribution
 
         // Show success message
         setRegistrationSuccess(true);

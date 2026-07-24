@@ -3,8 +3,9 @@ import { Link } from 'react-router-dom';
 import EditProfile from './EditProfile';
 import ChangePassword from './ChangePassword';
 import ExamHistory from './ExamHistory';
+import AffiliatePanel from './AffiliatePanel';
 import Navbar from './Navbar';
-import { User, Edit, History, ChevronLeft, ChevronRight, BarChart, Headphones, PenTool, ArrowLeft, ArrowRight, KeyRound } from 'lucide-react';
+import { User, Edit, History, ChevronLeft, ChevronRight, BarChart, Headphones, PenTool, ArrowLeft, ArrowRight, KeyRound, Gift } from 'lucide-react';
 import { API_BASE } from '../config/api';
 
 const ProfilePage = () => {
@@ -101,6 +102,8 @@ const ProfilePage = () => {
         return <ChangePassword />;
       case 'history':
         return <ExamHistory />;
+      case 'affiliate':
+        return <AffiliatePanel />;
       default:
         return (
           <div className="flex-1">
@@ -426,6 +429,16 @@ const ProfilePage = () => {
                 >
                   <KeyRound className="w-5 h-5 min-w-5" />
                   {!menuCollapsed && <span>Đổi mật khẩu</span>}
+                </div>
+                <div
+                  className={`flex items-center gap-3 p-2 cursor-pointer rounded-lg hover:bg-gray-50 ${
+                    activeView === 'affiliate' ? 'text-[#0096b1] bg-[#0096b1]-50' : 'text-gray-600'
+                  }`}
+                  onClick={() => setActiveView('affiliate')}
+                  title={menuCollapsed ? "Affiliate" : ""}
+                >
+                  <Gift className="w-5 h-5 min-w-5" />
+                  {!menuCollapsed && <span>Affiliate</span>}
                 </div>
               </nav>
             </div>

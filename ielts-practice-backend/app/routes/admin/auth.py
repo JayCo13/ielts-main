@@ -37,6 +37,7 @@ class StudentCreate(BaseModel):
     email: EmailStr
     password: str
     code: str  # OTP sent to the email, verified before the account is created
+    ref: Optional[str] = None  # affiliate referral code the signup came through
 
 class UpdateAdminProfileRequest(BaseModel):
     email: Optional[str] = None
@@ -603,8 +604,15 @@ def create_or_update_student(
             created_at=get_vietnam_time().replace(tzinfo=None),
             last_active=get_vietnam_time().replace(tzinfo=None)
         )
+        # Affiliate: every new customer gets a referral code (Google signups
+        # aren't ref-attributed since the code can't survive the OAuth redirect).
+        try:
+            from app.utils.affiliate import generate_referral_code
+            student.referral_code = generate_referral_code(db)
+        except Exception:
+            pass
         db.add(student)
-    
+
     db.commit()
     db.refresh(student)
     return student
@@ -1141,13 +1149,25 @@ async def register_student(student_data: StudentCreate, db: Session = Depends(ge
         username=student_data.username,
         email=student_data.email,
         password=hashed_password,
-        role="customer",   
+        role="customer",
         status="online",
         created_at=get_vietnam_time().replace(tzinfo=None),
         last_active=get_vietnam_time().replace(tzinfo=None),
         image_url=DEFAULT_STUDENT_IMAGE  # Set default image
     )
-    
+
+    # Affiliate: give every new customer their own referral code, and attribute
+    # them (permanently) to the affiliate whose link they signed up through.
+    try:
+        from app.utils.affiliate import generate_referral_code
+        new_student.referral_code = generate_referral_code(db)
+        if student_data.ref:
+            referrer = db.query(User).filter(User.referral_code == student_data.ref.strip()).first()
+            if referrer:
+                new_student.referred_by = referrer.user_id
+    except Exception:
+        pass
+
     db.add(new_student)
     db.commit()
     db.refresh(new_student)
