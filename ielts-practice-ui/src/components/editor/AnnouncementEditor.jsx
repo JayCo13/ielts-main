@@ -1,44 +1,90 @@
-import { Editor } from '@tinymce/tinymce-react';
+import React, { useRef, useEffect } from 'react';
 import { API_BASE } from '../../config/api';
 
-// Lean rich-text editor for the homepage "Thông tin mới" body. Supports inserting
-// images: they are UPLOADED to the backend (not stored as base64, which would
-// overflow the MySQL TEXT column) via /admin/action/upload-image and referenced
-// by their /static URL. TinyMCE 7 (Promise-based images_upload_handler).
-const APIKEY = 'x8qv7w0pkk74iqgmg44vcmclaec708cuu838bb4jx28o26ur';
-
+// Lightweight, dependency-free rich-text editor for the "Thông tin mới" body
+// (NO TinyMCE). Plain contentEditable + a small toolbar. Inserted images are
+// UPLOADED to the backend (/admin/action/upload-image) and referenced by their
+// absolute /static URL — never base64 (which would overflow the MySQL TEXT col).
 export default function AnnouncementEditor({ value, onChange }) {
-  const imagesUploadHandler = (blobInfo) =>
-    new Promise((resolve, reject) => {
+  const ref = useRef(null);
+  const fileRef = useRef(null);
+
+  // Load initial HTML on mount, and re-sync when `value` changes externally
+  // (e.g. opening a different item) WITHOUT clobbering the caret while typing.
+  useEffect(() => {
+    const el = ref.current;
+    if (el && document.activeElement !== el && (value || '') !== el.innerHTML) {
+      el.innerHTML = value || '';
+    }
+  }, [value]);
+
+  const emit = () => { if (ref.current) onChange(ref.current.innerHTML); };
+
+  const exec = (command, arg) => {
+    ref.current?.focus();
+    document.execCommand(command, false, arg);
+    emit();
+  };
+
+  const onPickImage = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
       const fd = new FormData();
-      fd.append('image', blobInfo.blob(), blobInfo.filename());
-      fetch(`${API_BASE}/admin/action/upload-image`, {
+      fd.append('image', file);
+      const res = await fetch(`${API_BASE}/admin/action/upload-image`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` },
         body: fd,
-      })
-        .then((r) => (r.ok ? r.json() : Promise.reject(new Error('upload failed'))))
-        .then((d) => resolve(`${API_BASE}${d.image_url}`))
-        .catch(() => reject('Không tải được ảnh'));
-    });
+      });
+      if (!res.ok) throw new Error('upload failed');
+      const data = await res.json();
+      const url = `${API_BASE}${data.image_url}`;
+      ref.current?.focus();
+      document.execCommand('insertHTML', false, `<img src="${url}" style="max-width:100%;height:auto;border-radius:8px;" /><p><br/></p>`);
+      emit();
+    } catch (err) {
+      alert('Không tải được ảnh');
+    }
+  };
+
+  const Btn = ({ onClick, title, children }) => (
+    <button
+      type="button"
+      onMouseDown={(e) => e.preventDefault()} // keep the editor selection
+      onClick={onClick}
+      title={title}
+      className="px-2.5 py-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-200"
+    >
+      {children}
+    </button>
+  );
 
   return (
-    <Editor
-      apiKey={APIKEY}
-      value={value}
-      onEditorChange={onChange}
-      init={{
-        height: 320,
-        menubar: false,
-        plugins: ['advlist', 'autolink', 'lists', 'link', 'image', 'preview', 'table', 'wordcount'],
-        toolbar:
-          'undo redo | bold italic underline | forecolor | bullist numlist | link image table | alignleft aligncenter alignright | removeformat',
-        automatic_uploads: true,
-        paste_data_images: true,
-        images_upload_handler: imagesUploadHandler,
-        content_style:
-          'body{font-family:Inter,system-ui,sans-serif;font-size:14px;line-height:1.6} img{max-width:100%;height:auto}',
-      }}
-    />
+    <div className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden">
+      <style>{`.ann-editor:empty:before{content:attr(data-ph);color:#9ca3af;}`}</style>
+      <div className="flex flex-wrap items-center gap-0.5 px-2 py-1.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40">
+        <Btn onClick={() => exec('bold')} title="Đậm"><b>B</b></Btn>
+        <Btn onClick={() => exec('italic')} title="Nghiêng"><i>I</i></Btn>
+        <Btn onClick={() => exec('underline')} title="Gạch chân"><u>U</u></Btn>
+        <span className="w-px h-5 bg-gray-300 dark:bg-gray-600 mx-1" />
+        <Btn onClick={() => exec('insertUnorderedList')} title="Danh sách">• List</Btn>
+        <Btn onClick={() => exec('formatBlock', 'h3')} title="Tiêu đề nhỏ">H</Btn>
+        <Btn onClick={() => { const u = window.prompt('Nhập link:'); if (u) exec('createLink', u); }} title="Chèn link">🔗</Btn>
+        <Btn onClick={() => fileRef.current && fileRef.current.click()} title="Chèn hình">🖼️ Hình</Btn>
+        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onPickImage} />
+      </div>
+      <div
+        ref={ref}
+        className="ann-editor min-h-[180px] max-h-[360px] overflow-y-auto px-3 py-2.5 text-sm text-gray-800 dark:text-gray-100 focus:outline-none"
+        style={{ lineHeight: 1.6 }}
+        contentEditable
+        suppressContentEditableWarning
+        onInput={emit}
+        onBlur={emit}
+        data-ph="Nhập nội dung… (có thể chèn hình)"
+      />
+    </div>
   );
 }
