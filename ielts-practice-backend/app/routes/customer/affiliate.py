@@ -7,7 +7,7 @@ import os
 import uuid
 from typing import Optional, List
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks
 from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -21,6 +21,26 @@ from app.utils.datetime_utils import get_vietnam_time
 router = APIRouter()
 
 FRONTEND_URL = os.getenv("FRONTEND_URL", "https://thiieltstrenmay.com").rstrip("/")
+
+
+def _notify_admin_withdrawal(username: str, email: str, amount: int, bank: str, account_number: str, account_holder: str, has_qr: bool):
+    """Best-effort email to the admin inbox when a withdrawal is requested."""
+    try:
+        from app.utils.email_utils import send_email, EMAIL_FROM, EMAIL_USERNAME
+        from app.utils.email_templates import render_email, paragraph
+        to = os.getenv("ADMIN_NOTIFY_EMAIL") or EMAIL_FROM or EMAIL_USERNAME
+        if not to:
+            return
+        body = (
+            paragraph(f"Có yêu cầu <b>rút tiền hoa hồng Affiliate</b> mới.")
+            + paragraph(f"Tài khoản: <b>{username}</b> ({email or '—'})")
+            + paragraph(f"Số tiền: <b>{amount:,} xu</b> (= {amount:,}đ)")
+            + paragraph(f"Nhận qua: {'QR + ' if has_qr else ''}{bank or '—'} · {account_number or '—'} · {account_holder or '—'}")
+            + paragraph("Vào trang Admin → Affiliate để xem chi tiết và xử lý.")
+        )
+        send_email(to, "Yêu cầu rút tiền Affiliate mới", render_email("Yêu cầu rút tiền Affiliate", body))
+    except Exception:
+        pass
 
 
 def _now():
@@ -175,6 +195,7 @@ class WithdrawRequest(BaseModel):
 @router.post("/withdraw")
 async def request_withdraw(
     payload: WithdrawRequest,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current: User = Depends(get_current_student),
 ):
@@ -211,4 +232,11 @@ async def request_withdraw(
     db.add(w)
     db.commit()
     db.refresh(w)
+
+    # Notify the admin by email (after the response, non-blocking).
+    background_tasks.add_task(
+        _notify_admin_withdrawal, current.username, current.email, int(amount),
+        current.payout_bank, current.payout_account_number, current.payout_account_holder,
+        bool(current.payout_qr_url),
+    )
     return {"ok": True, "withdrawal_id": w.withdrawal_id, "status": w.status, "balance": current.affiliate_balance}

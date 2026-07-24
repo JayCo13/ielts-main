@@ -21,6 +21,14 @@ const ProfilePage = () => {
   const [accountStatus, setAccountStatus] = useState(null);
   const [vipInfo, setVipInfo] = useState(null);
 
+  // Open a specific tab when arriving via ?tab= (e.g. Affiliate link in navbar).
+  useEffect(() => {
+    const tab = new URLSearchParams(window.location.search).get('tab');
+    if (tab && ['affiliate', 'payment', 'edit', 'password', 'history'].includes(tab)) {
+      setActiveView(tab);
+    }
+  }, []);
+
   // Update fetchData to also get account status
   const fetchData = useCallback(async () => {
     try {
@@ -442,6 +450,7 @@ const ProfilePage = () => {
                 >
                   <Gift className="w-5 h-5 min-w-5" />
                   {!menuCollapsed && <span>Affiliate</span>}
+                  {!menuCollapsed && <span className="ml-auto text-[10px] font-bold text-white bg-[#eb7e37] rounded-full px-1.5 py-0.5">New</span>}
                 </div>
                 <div
                   className={`flex items-center gap-3 p-2 cursor-pointer rounded-lg hover:bg-gray-50 ${
@@ -452,6 +461,7 @@ const ProfilePage = () => {
                 >
                   <CreditCard className="w-5 h-5 min-w-5" />
                   {!menuCollapsed && <span>Thanh toán</span>}
+                  {!menuCollapsed && <span className="ml-auto text-[10px] font-bold text-white bg-[#eb7e37] rounded-full px-1.5 py-0.5">New</span>}
                 </div>
               </nav>
             </div>

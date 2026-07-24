@@ -527,6 +527,16 @@ const Navbar = () => {
                                                     </svg>
                                                     <span>Lịch sử bài làm</span>
                                                 </Link>
+                                                <Link
+                                                    to="/profile?tab=affiliate"
+                                                    className="flex items-center gap-3 px-3 py-2 text-sm text-gray-700 hover:bg-[#0096b1]/10 rounded-lg transition-colors"
+                                                >
+                                                    <svg className="w-5 h-5 text-[#0096b1]" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v13m0-13V6a2 2 0 112-2h1.5a2.5 2.5 0 010 5H12M12 8V6a2 2 0 00-2-2H8.5a2.5 2.5 0 000 5H12M5 12h14v7a2 2 0 01-2 2H7a2 2 0 01-2-2v-7z"></path>
+                                                    </svg>
+                                                    <span>Affiliate</span>
+                                                    <span className="ml-auto text-[10px] font-bold text-white bg-[#eb7e37] rounded-full px-1.5 py-0.5">New</span>
+                                                </Link>
                                                 {localStorage.getItem('role') !== 'student' && (
                                                     <Link
                                                         to="/my-vip-package"
@@ -684,6 +694,18 @@ const Navbar = () => {
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                                             </svg>
                                             <span>Lịch sử bài làm</span>
+                                        </Link>
+
+                                        <Link
+                                            to="/profile?tab=affiliate"
+                                            className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-[#0096b1]/10 rounded-lg transition-colors"
+                                            onClick={() => setIsMobileMenuOpen(false)}
+                                        >
+                                            <svg className="w-5 h-5 text-[#0096b1]" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v13m0-13V6a2 2 0 112-2h1.5a2.5 2.5 0 010 5H12M12 8V6a2 2 0 00-2-2H8.5a2.5 2.5 0 000 5H12M5 12h14v7a2 2 0 01-2 2H7a2 2 0 01-2-2v-7z"></path>
+                                            </svg>
+                                            <span>Affiliate</span>
+                                            <span className="ml-auto text-[10px] font-bold text-white bg-[#eb7e37] rounded-full px-1.5 py-0.5">New</span>
                                         </Link>
 
                                         <Link

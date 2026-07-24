@@ -58,6 +58,11 @@ export default function AffiliatePanel({ onGoPayment }) {
 
   const submitWithdraw = async () => {
     setMsg(null);
+    // Warn + require payment setup before withdrawing.
+    if (payment && !payment.is_set) {
+      setMsg({ type: 'warn', text: 'Bạn chưa thiết lập Thông tin thanh toán. Vui lòng thêm ảnh QR hoặc tài khoản ngân hàng trước khi rút.', action: true });
+      return;
+    }
     setSubmitting(true);
     try {
       await authed('/customer/affiliate/withdraw', { method: 'POST', body: JSON.stringify({}) });
@@ -111,23 +116,23 @@ export default function AffiliatePanel({ onGoPayment }) {
         <div className="flex items-center gap-2 mb-3"><Wallet className="w-5 h-5 text-[#0096b1]" /><h3 className="font-bold text-gray-800">Rút tiền hoa hồng</h3></div>
         {!info.can_withdraw ? (
           <p className="text-sm text-gray-500">Cần đạt tối thiểu <b>{fmt(info.withdraw_min)} xu</b> mới được rút. Số dư hiện tại: <b>{fmt(info.balance)} xu</b>.</p>
-        ) : payment && !payment.is_set ? (
-          <div className="text-sm text-gray-600">
-            Bạn cần thiết lập <b>Thông tin thanh toán</b> (ảnh QR hoặc tài khoản ngân hàng) trước khi rút.
-            {onGoPayment && <button onClick={onGoPayment} className="ml-2 text-[#0096b1] font-semibold hover:underline">Thiết lập ngay →</button>}
-          </div>
         ) : (
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="text-sm text-gray-500">
               Rút toàn bộ số dư: <b className="text-gray-800">{fmt(info.balance)} xu</b>
-              {payment && <span className="block text-xs text-gray-400 mt-0.5">Nhận qua: {payment.qr_url ? 'QR đã lưu' : ''}{payment.qr_url && payment.bank ? ' · ' : ''}{payment.bank ? `${payment.bank} ${payment.account_number || ''}` : ''}</span>}
+              {payment && payment.is_set && <span className="block text-xs text-gray-400 mt-0.5">Nhận qua: {payment.qr_url ? 'QR đã lưu' : ''}{payment.qr_url && payment.bank ? ' · ' : ''}{payment.bank ? `${payment.bank} ${payment.account_number || ''}` : ''}</span>}
             </div>
             <button onClick={submitWithdraw} disabled={submitting} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#eb7e37] text-white text-sm font-semibold hover:bg-[#d96e28] disabled:opacity-50">
               <Send className="w-4 h-4" /> Yêu cầu rút tiền
             </button>
           </div>
         )}
-        {msg && <p className={`mt-2 text-sm ${msg.type === 'ok' ? 'text-emerald-600' : 'text-red-500'}`}>{msg.text}</p>}
+        {msg && (
+          <p className={`mt-2 text-sm ${msg.type === 'ok' ? 'text-emerald-600' : msg.type === 'warn' ? 'text-amber-600' : 'text-red-500'}`}>
+            {msg.type !== 'ok' && '⚠️ '}{msg.text}
+            {msg.action && onGoPayment && <button onClick={onGoPayment} className="ml-2 text-[#0096b1] font-semibold hover:underline">Thiết lập ngay →</button>}
+          </p>
+        )}
       </div>
 
       {/* Pending withdrawals */}
