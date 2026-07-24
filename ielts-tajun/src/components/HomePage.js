@@ -324,8 +324,7 @@ const AnnouncementsSection = () => {
         <motion.ul
           variants={listVariants}
           initial="hidden"
-          whileInView="show"
-          viewport={{ once: true, margin: '-40px' }}
+          animate="show"
           className="relative divide-y divide-gray-50"
         >
           {visibleItems.map(item => (
