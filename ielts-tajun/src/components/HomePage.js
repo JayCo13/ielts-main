@@ -248,81 +248,114 @@ const AnnouncementsSection = () => {
     } catch (e) { return ''; }
   };
 
-  const ItemInner = ({ item }) => (
+  const listVariants = { hidden: {}, show: { transition: { staggerChildren: 0.07 } } };
+  const itemVariants = {
+    hidden: { opacity: 0, y: 18 },
+    show: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.22, 1, 0.36, 1] } },
+  };
+
+  const RowContent = ({ item }) => (
     <>
-      <span className="text-2xl leading-none shrink-0 mt-0.5">{item.icon || '•'}</span>
-      <span className={`flex-1 text-base md:text-lg text-gray-700 ${item.is_important ? 'font-semibold' : ''}`}>
-        {item.title || item.content}
-        {item.is_important && (
-          <span className="ml-2 align-middle inline-flex items-center text-[11px] font-bold text-[#eb7e37] bg-[#eb7e37]/10 rounded-full px-2 py-0.5">
-            📌 Quan trọng
-          </span>
-        )}
+      {/* animated left accent bar on hover */}
+      <span className="absolute left-0 top-0 h-full w-1 rounded-r bg-gradient-to-b from-[#0096b1] to-[#2b5356] origin-top scale-y-0 group-hover:scale-y-100 transition-transform duration-300" />
+      {/* icon chip */}
+      <span className="shrink-0 grid place-items-center w-11 h-11 rounded-2xl bg-gradient-to-br from-[#0096b1]/10 to-[#2b5356]/10 text-xl transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-6">
+        {item.icon || '✦'}
       </span>
-      {item.created_at && (
-        <span className="shrink-0 text-xs md:text-sm text-gray-400 mt-1.5 whitespace-nowrap">
-          {fmtDate(item.created_at)}
-        </span>
-      )}
-      <svg className="w-5 h-5 text-gray-300 shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-      </svg>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className={`text-base md:text-lg text-gray-800 transition-colors group-hover:text-[#0096b1] ${item.is_important ? 'font-bold' : 'font-medium'}`}>
+            {item.title || item.content}
+          </span>
+          {item.is_important && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#eb7e37] bg-[#eb7e37]/10 rounded-full px-2 py-0.5">
+              <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="currentColor"><path d="M14 4v5l3 3-1 1-4-1-4 4v-2l4-4-1-4 3-3h4z" /></svg>
+              Quan trọng
+            </span>
+          )}
+        </div>
+        {item.created_at && <div className="text-xs text-gray-400 mt-0.5">{fmtDate(item.created_at)}</div>}
+      </div>
+      {/* arrow */}
+      <span className="shrink-0 grid place-items-center w-8 h-8 rounded-full text-gray-300 transition-all duration-300 group-hover:text-white group-hover:bg-[#0096b1] group-hover:translate-x-0.5">
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" /></svg>
+      </span>
     </>
   );
 
+  const rowClass = "group relative flex items-center gap-4 px-5 md:px-7 py-4 transition-colors hover:bg-gradient-to-r hover:from-[#0096b1]/[0.06] hover:to-transparent";
+
   return (
-    <div className="max-w-5xl mx-auto px-4 relative z-10 py-10">
+    <div className="max-w-4xl mx-auto px-4 relative z-10 py-12">
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 28 }}
         whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.6 }}
-        className="bg-white rounded-2xl shadow-lg border border-[#e9ecef] overflow-hidden"
+        viewport={{ once: true, margin: '-60px' }}
+        transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+        className="relative bg-white rounded-[28px] border border-gray-100 overflow-hidden shadow-[0_24px_70px_-24px_rgba(0,150,177,0.35)]"
       >
+        {/* decorative gradient blobs */}
+        <div className="pointer-events-none absolute -top-20 -right-16 w-64 h-64 rounded-full bg-[#0096b1]/10 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-24 -left-16 w-64 h-64 rounded-full bg-[#eb7e37]/10 blur-3xl" />
+
         {/* Header */}
-        <div className="flex items-center gap-3 px-6 md:px-8 py-5 bg-gradient-to-r from-[#0096b1]/10 via-[#2b5356]/5 to-transparent border-b border-gray-100">
-          <span className="text-3xl">📢</span>
-          <h2 className="text-xl md:text-2xl font-bold text-[#2b5356] tracking-wide uppercase">
-            Thông tin mới
-          </h2>
+        <div className="relative flex items-center gap-3.5 px-6 md:px-8 py-5 bg-gradient-to-r from-[#0096b1] via-[#0d8ba3] to-[#2b5356] text-white overflow-hidden">
+          <div className="pointer-events-none absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_80%_-20%,white,transparent_40%)]" />
+          <motion.div
+            animate={{ scale: [1, 1.08, 1], rotate: [0, -4, 0] }}
+            transition={{ repeat: Infinity, duration: 2.6, ease: 'easeInOut' }}
+            className="relative grid place-items-center w-12 h-12 rounded-2xl bg-white/15 backdrop-blur-sm ring-1 ring-white/20"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" /></svg>
+          </motion.div>
+          <div className="relative">
+            <h2 className="text-xl md:text-2xl font-extrabold tracking-wide leading-tight">Thông tin mới</h2>
+            <div className="flex items-center gap-1.5 text-xs text-white/85 mt-0.5">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75 animate-ping" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+              </span>
+              Cập nhật liên tục
+            </div>
+          </div>
         </div>
 
         {/* List */}
-        <ul className="divide-y divide-gray-100">
+        <motion.ul
+          variants={listVariants}
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, margin: '-40px' }}
+          className="relative divide-y divide-gray-50"
+        >
           {visibleItems.map(item => (
-            <li key={item.announcement_id}>
+            <motion.li key={item.announcement_id} variants={itemVariants}>
               {item.link ? (
-                <a
-                  href={item.link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-start gap-4 px-6 md:px-8 py-4 hover:bg-[#0096b1]/5 transition-colors"
-                >
-                  <ItemInner item={item} />
+                <a href={item.link} target="_blank" rel="noopener noreferrer" className={rowClass}>
+                  <RowContent item={item} />
                 </a>
               ) : (
-                <Link
-                  to={`/thong-tin/${item.announcement_id}`}
-                  className="flex items-start gap-4 px-6 md:px-8 py-4 hover:bg-[#0096b1]/5 transition-colors"
-                >
-                  <ItemInner item={item} />
+                <Link to={`/thong-tin/${item.announcement_id}`} className={rowClass}>
+                  <RowContent item={item} />
                 </Link>
               )}
-            </li>
+            </motion.li>
           ))}
-        </ul>
+        </motion.ul>
 
         {/* Footer / Xem tất cả */}
         {hasMore && (
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className="w-full flex items-center justify-center gap-1 px-6 py-4 text-base font-semibold text-[#0096b1] hover:bg-[#0096b1]/5 border-t border-gray-100 transition-colors"
-          >
-            {expanded ? 'Thu gọn' : `Xem tất cả (${items.length})`}
-            <svg className={`w-4 h-4 transition-transform ${expanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
+          <div className="relative p-4 border-t border-gray-50">
+            <button
+              onClick={() => setExpanded(!expanded)}
+              className="group w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-base font-semibold text-[#0096b1] bg-[#0096b1]/[0.06] hover:bg-[#0096b1]/10 transition-colors"
+            >
+              {expanded ? 'Thu gọn' : `Xem tất cả (${items.length})`}
+              <svg className={`w-4 h-4 transition-transform duration-300 ${expanded ? 'rotate-180' : 'group-hover:translate-y-0.5'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+          </div>
         )}
       </motion.div>
     </div>
